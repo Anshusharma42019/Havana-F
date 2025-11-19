@@ -423,18 +423,33 @@ const BookingPage = () => {
     try {
       const token = getAuthToken();
       
-      // First create checkout for this booking
-      const checkoutRes = await axios.post('/api/checkout/create', 
-        { bookingId },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      // Create checkout for this booking if it doesn't exist
+      let checkoutId;
+      try {
+        const checkoutRes = await axios.post('/api/checkout/create', 
+          { bookingId },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        checkoutId = checkoutRes.data.checkout._id;
+      } catch (error) {
+        // If checkout creation fails, use booking ID as fallback
+        checkoutId = bookingId;
+      }
       
-      const checkoutId = checkoutRes.data.checkout._id;
+      // Transform booking data to invoice format
+      const invoiceBookingData = {
+        ...booking._raw,
+        // Add any additional fields needed for invoice
+        customerName: booking.name,
+        phoneNumber: booking._raw.mobileNo,
+        totalAmount: booking._raw.rate || 0,
+        amount: booking._raw.rate || 0
+      };
       
-      // Navigate to invoice page with checkout ID
+      // Navigate to invoice page with transformed data
       navigate('/invoice', { 
         state: { 
-          bookingData: booking._raw,
+          bookingData: invoiceBookingData,
           checkoutId: checkoutId,
           guestName: booking.name,
           roomNumber: booking.roomNumber,
@@ -442,7 +457,7 @@ const BookingPage = () => {
         } 
       });
     } catch (error) {
-      console.error('Error creating checkout:', error);
+      console.error('Error generating invoice:', error);
       setError('Failed to generate invoice');
     }
   };
