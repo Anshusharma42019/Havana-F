@@ -328,8 +328,8 @@ const Sidebar = () => {
       ],
     },
     
-    // Users - Hidden
-    // { icon: Users, label: "All Users", path: "/users" }
+    // Users
+    { icon: Users, label: "All Users", path: "/users" }
     
     // Commented out sections:
     /*
