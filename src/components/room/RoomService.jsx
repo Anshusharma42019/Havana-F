@@ -35,14 +35,20 @@ const RoomService = () => {
   const fetchItems = async () => {
     try {
       const token = localStorage.getItem('token');
+      console.log('Fetching items from:', `${import.meta.env.VITE_API_BASE_URL}/api/inventory/items`);
       
       // Fetch inventory items
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/inventory/items`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
+      console.log('Response status:', res.status);
+      
       if (res.ok) {
-        const inventoryItems = await res.json();
+        const response = await res.json();
+        console.log('Raw inventory response:', response);
+        
+        const inventoryItems = response.items || response || [];
         const formattedItems = (Array.isArray(inventoryItems) ? inventoryItems : []).map(item => ({
           ...item,
           category: item.category || 'Restaurant',
@@ -52,7 +58,10 @@ const RoomService = () => {
           id: item._id
         }));
         
+        console.log('Formatted items:', formattedItems);
         setAvailableItems(formattedItems);
+      } else {
+        console.error('Failed to fetch items:', res.status, res.statusText);
       }
     } catch (error) {
       console.error('Error fetching inventory items:', error);
@@ -101,7 +110,9 @@ const RoomService = () => {
       
       // Deduct stock for each item
       for (const item of orderItems) {
-        await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/inventory/items/${item.itemId}/stock`, {
+        console.log(`Updating stock for item ${item.itemId}, reducing by ${item.quantity}`);
+        
+        const stockResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/inventory/items/${item.itemId}/stock`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -114,6 +125,12 @@ const RoomService = () => {
             notes: `Order by ${roomData.booking?.name || 'Guest'}`
           })
         });
+        
+        if (stockResponse.ok) {
+          console.log(`Stock updated successfully for ${item.itemName}`);
+        } else {
+          console.error(`Failed to update stock for ${item.itemName}:`, stockResponse.status);
+        }
       }
       
       const restaurantItems = orderItems.filter(item => item.category === 'Restaurant');
