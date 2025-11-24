@@ -571,6 +571,24 @@ const EditBookingForm = () => {
     }));
   };
 
+  const handleImageUpload = async (e) => {
+    const { name, files } = e.target;
+    if (files && files[0]) {
+      const file = files[0];
+      
+      // Convert file to base64 for storage
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, [name]: reader.result }));
+        showToast(`${name === 'idProofImageUrl' ? 'ID Proof Image 1' : 'ID Proof Image 2'} uploaded successfully`, 'success');
+      };
+      reader.onerror = () => {
+        showToast('Failed to upload image', 'error');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -782,6 +800,140 @@ const EditBookingForm = () => {
                       onChange={handleChange}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="idProofImageUrl">ID Proof Image 1</Label>
+                    <div className="flex gap-2">
+                      <Input 
+                        id="idProofImageUrl" 
+                        name="idProofImageUrl" 
+                        type="file" 
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const canvas = document.createElement('canvas');
+                          const video = document.createElement('video');
+                          navigator.mediaDevices.getUserMedia({ video: true })
+                            .then(stream => {
+                              video.srcObject = stream;
+                              video.play();
+                              const modal = document.createElement('div');
+                              modal.className = 'fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center';
+                              modal.innerHTML = `
+                                <div class="bg-white p-4 rounded-lg">
+                                  <video autoplay style="width: 300px; height: 200px;"></video>
+                                  <div class="flex gap-2 mt-2">
+                                    <button class="capture-btn bg-blue-500 text-white px-4 py-2 rounded">Capture</button>
+                                    <button class="close-btn bg-gray-500 text-white px-4 py-2 rounded">Close</button>
+                                  </div>
+                                </div>
+                              `;
+                              document.body.appendChild(modal);
+                              const modalVideo = modal.querySelector('video');
+                              modalVideo.srcObject = stream;
+                              modal.querySelector('.capture-btn').onclick = () => {
+                                canvas.width = modalVideo.videoWidth;
+                                canvas.height = modalVideo.videoHeight;
+                                canvas.getContext('2d').drawImage(modalVideo, 0, 0);
+                                const imageData = canvas.toDataURL('image/jpeg');
+                                setFormData(prev => ({ ...prev, idProofImageUrl: imageData }));
+                                showToast('ID Proof Image 1 captured successfully', 'success');
+                                stream.getTracks().forEach(track => track.stop());
+                                document.body.removeChild(modal);
+                              };
+                              modal.querySelector('.close-btn').onclick = () => {
+                                stream.getTracks().forEach(track => track.stop());
+                                document.body.removeChild(modal);
+                              };
+                            })
+                            .catch(() => showToast('Camera access denied', 'error'));
+                        }}
+                        className="px-3 py-1 text-sm"
+                      >
+                        📷
+                      </Button>
+                    </div>
+                    {formData.idProofImageUrl && (
+                      <div className="mt-2">
+                        <img 
+                          src={formData.idProofImageUrl} 
+                          alt="ID Proof 1" 
+                          className="w-20 h-20 object-cover rounded border"
+                        />
+                        <p className="text-xs text-green-600 mt-1">✓ Image uploaded</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="idProofImageUrl2">ID Proof Image 2</Label>
+                    <div className="flex gap-2">
+                      <Input 
+                        id="idProofImageUrl2" 
+                        name="idProofImageUrl2" 
+                        type="file" 
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const canvas = document.createElement('canvas');
+                          const video = document.createElement('video');
+                          navigator.mediaDevices.getUserMedia({ video: true })
+                            .then(stream => {
+                              video.srcObject = stream;
+                              video.play();
+                              const modal = document.createElement('div');
+                              modal.className = 'fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center';
+                              modal.innerHTML = `
+                                <div class="bg-white p-4 rounded-lg">
+                                  <video autoplay style="width: 300px; height: 200px;"></video>
+                                  <div class="flex gap-2 mt-2">
+                                    <button class="capture-btn bg-blue-500 text-white px-4 py-2 rounded">Capture</button>
+                                    <button class="close-btn bg-gray-500 text-white px-4 py-2 rounded">Close</button>
+                                  </div>
+                                </div>
+                              `;
+                              document.body.appendChild(modal);
+                              const modalVideo = modal.querySelector('video');
+                              modalVideo.srcObject = stream;
+                              modal.querySelector('.capture-btn').onclick = () => {
+                                canvas.width = modalVideo.videoWidth;
+                                canvas.height = modalVideo.videoHeight;
+                                canvas.getContext('2d').drawImage(modalVideo, 0, 0);
+                                const imageData = canvas.toDataURL('image/jpeg');
+                                setFormData(prev => ({ ...prev, idProofImageUrl2: imageData }));
+                                showToast('ID Proof Image 2 captured successfully', 'success');
+                                stream.getTracks().forEach(track => track.stop());
+                                document.body.removeChild(modal);
+                              };
+                              modal.querySelector('.close-btn').onclick = () => {
+                                stream.getTracks().forEach(track => track.stop());
+                                document.body.removeChild(modal);
+                              };
+                            })
+                            .catch(() => showToast('Camera access denied', 'error'));
+                        }}
+                        className="px-3 py-1 text-sm"
+                      >
+                        📷
+                      </Button>
+                    </div>
+                    {formData.idProofImageUrl2 && (
+                      <div className="mt-2">
+                        <img 
+                          src={formData.idProofImageUrl2} 
+                          alt="ID Proof 2" 
+                          className="w-20 h-20 object-cover rounded border"
+                        />
+                        <p className="text-xs text-green-600 mt-1">✓ Image uploaded</p>
+                      </div>
+                    )}
+                  </div>
                   <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="address">Address</Label>
                     <Input
@@ -816,6 +968,93 @@ const EditBookingForm = () => {
                       onChange={(e) => setFormData(prev => ({ ...prev, vip: e.target.checked }))}
                     />
                     <Label htmlFor="vip">VIP Guest</Label>
+                  </div>
+                </div>
+                <hr className="my-6 border-gray-200" />
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-700">Guest Photo Upload</h3>
+                  
+                  {/* Photo Upload Options */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                      <div className="space-y-2">
+                          <Label htmlFor="photoUpload">Upload Photo from Device</Label>
+                          <div className="flex gap-2">
+                            <Input 
+                                id="photoUpload" 
+                                type="file" 
+                                accept="image/*"
+                                onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if (file) {
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => {
+                                            setFormData(prev => ({ ...prev, photoUrl: reader.result }));
+                                            showToast('Photo uploaded successfully', 'success');
+                                        };
+                                        reader.onerror = () => {
+                                            showToast('Failed to upload image', 'error');
+                                        };
+                                        reader.readAsDataURL(file);
+                                    }
+                                }}
+                                className="flex-1"
+                            />
+                            <Button
+                              type="button"
+                              onClick={() => {
+                                const canvas = document.createElement('canvas');
+                                const video = document.createElement('video');
+                                navigator.mediaDevices.getUserMedia({ video: true })
+                                  .then(stream => {
+                                    video.srcObject = stream;
+                                    video.play();
+                                    const modal = document.createElement('div');
+                                    modal.className = 'fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center';
+                                    modal.innerHTML = `
+                                      <div class="bg-white p-4 rounded-lg">
+                                        <video autoplay style="width: 300px; height: 200px;"></video>
+                                        <div class="flex gap-2 mt-2">
+                                          <button class="capture-btn bg-blue-500 text-white px-4 py-2 rounded">Capture</button>
+                                          <button class="close-btn bg-gray-500 text-white px-4 py-2 rounded">Close</button>
+                                        </div>
+                                      </div>
+                                    `;
+                                    document.body.appendChild(modal);
+                                    const modalVideo = modal.querySelector('video');
+                                    modalVideo.srcObject = stream;
+                                    modal.querySelector('.capture-btn').onclick = () => {
+                                      canvas.width = modalVideo.videoWidth;
+                                      canvas.height = modalVideo.videoHeight;
+                                      canvas.getContext('2d').drawImage(modalVideo, 0, 0);
+                                      const imageData = canvas.toDataURL('image/jpeg');
+                                      setFormData(prev => ({ ...prev, photoUrl: imageData }));
+                                      showToast('Guest photo captured successfully', 'success');
+                                      stream.getTracks().forEach(track => track.stop());
+                                      document.body.removeChild(modal);
+                                    };
+                                    modal.querySelector('.close-btn').onclick = () => {
+                                      stream.getTracks().forEach(track => track.stop());
+                                      document.body.removeChild(modal);
+                                    };
+                                  })
+                                  .catch(() => showToast('Camera access denied', 'error'));
+                              }}
+                              className="px-3 py-1 text-sm"
+                            >
+                              📷
+                            </Button>
+                          </div>
+                          {formData.photoUrl && (
+                            <div className="mt-2">
+                              <img 
+                                src={formData.photoUrl} 
+                                alt="Guest Photo" 
+                                className="w-20 h-20 object-cover rounded border"
+                              />
+                              <p className="text-xs text-green-600 mt-1">✓ Photo uploaded</p>
+                            </div>
+                          )}
+                      </div>
                   </div>
                 </div>
               </section>
