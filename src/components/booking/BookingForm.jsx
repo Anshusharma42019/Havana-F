@@ -398,13 +398,9 @@ export const AppProvider = ({ children }) => {
       const categoriesWithCounts = categories.map(category => ({
         ...category,
         totalRooms: rooms.filter(room => {
-          return room.category?._id === category._id;
+          return room.categoryId === category._id || room.category?._id === category._id;
         }).length,
-        availableRoomsCount: rooms.filter(room => {
-          return room.category?._id === category._id && 
-                 room.status === 'available' && 
-                 !room.is_reserved;
-        }).length,
+        availableRoomsCount: 0, // Will be updated after availability check
       }));
       setAllCategories(categoriesWithCounts);
 

@@ -164,6 +164,11 @@ const EditBookingForm = () => {
   const [selectedRooms, setSelectedRooms] = useState([]);
   const [hasCheckedAvailability, setHasCheckedAvailability] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showAmendModal, setShowAmendModal] = useState(false);
+  const [amendmentData, setAmendmentData] = useState({
+    newCheckOutDate: '',
+    reason: ''
+  });
 
   const [formData, setFormData] = useState({
     grcNo: '',
@@ -647,6 +652,58 @@ const EditBookingForm = () => {
         showToast('Failed to upload image', 'error');
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAmendStay = async () => {
+    if (!amendmentData.newCheckOutDate) {
+      showToast('Please select new check-out date', 'error');
+      return;
+    }
+
+    if (new Date(formData.checkInDate) >= new Date(amendmentData.newCheckOutDate)) {
+      showToast('Check-out date must be after original check-in date', 'error');
+      return;
+    }
+
+    // Check amendment limits
+    const amendmentCount = editBooking?.amendmentHistory?.length || 0;
+    if (amendmentCount >= 3) {
+      showToast('Maximum 3 amendments allowed per booking', 'error');
+      return;
+    }
+
+    // Check time restriction (24 hours before checkout)
+    const currentTime = new Date();
+    const originalCheckOut = new Date(formData.checkOutDate);
+    const timeDiffHours = (originalCheckOut - currentTime) / (1000 * 60 * 60);
+    
+    if (timeDiffHours < 24) {
+      showToast('Cannot amend booking within 24 hours of checkout', 'error');
+      return;
+    }
+
+    try {
+      const response = await axios.post(`/api/bookings/amend/${editBooking._id}`, amendmentData);
+      showToast('Booking stay amended successfully!', 'success');
+      setShowAmendModal(false);
+      
+      // Update form data with new checkout date only
+      const newCheckOut = new Date(amendmentData.newCheckOutDate).toISOString().split('T')[0];
+      const timeDiff = new Date(newCheckOut).getTime() - new Date(formData.checkInDate).getTime();
+      const newDays = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+      
+      setFormData(prev => ({
+        ...prev,
+        checkOutDate: newCheckOut,
+        days: newDays,
+        rate: response.data.amendment.newTotalAmount
+      }));
+      
+    } catch (error) {
+      console.error('Error amending booking:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to amend booking';
+      showToast(errorMessage, 'error');
     }
   };
 
@@ -1812,6 +1869,25 @@ const EditBookingForm = () => {
                   Cancel
                 </Button>
                 <Button
+                  type="button"
+                  onClick={() => setShowAmendModal(true)}
+                  disabled={(editBooking?.amendmentHistory?.length || 0) >= 3 || 
+                           (new Date(formData.checkOutDate) - new Date()) / (1000 * 60 * 60) < 24}
+                  className={`px-8 py-3 font-semibold rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 w-full sm:w-auto ${
+                    (editBooking?.amendmentHistory?.length || 0) >= 3 || 
+                    (new Date(formData.checkOutDate) - new Date()) / (1000 * 60 * 60) < 24
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-orange-600 hover:bg-orange-700'
+                  }`}
+                  title={(editBooking?.amendmentHistory?.length || 0) >= 3 
+                    ? 'Maximum amendments reached' 
+                    : (new Date(formData.checkOutDate) - new Date()) / (1000 * 60 * 60) < 24
+                    ? 'Cannot amend within 24 hours of checkout'
+                    : 'Amend Stay'}
+                >
+                  Amend Stay
+                </Button>
+                <Button
                   type="submit"
                   className="px-8 py-3 font-semibold rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 w-full sm:w-auto"
                 >
@@ -1822,6 +1898,105 @@ const EditBookingForm = () => {
           </div>
         </div>
       </main>
+
+      {/* Amendment Modal */}
+      {showAmendModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Amend Booking Stay</h3>
+              <button
+                onClick={() => setShowAmendModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FaTimes size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Current Stay:</strong><br />
+                  Check-in: {new Date(formData.checkInDate).toLocaleDateString()} (Fixed)<br />
+                  Check-out: {new Date(formData.checkOutDate).toLocaleDateString()}<br />
+                  Duration: {formData.days} days<br />
+                  <span className="text-xs">Amendments made: {editBooking?.amendmentHistory?.length || 0}/3</span>
+                </p>
+              </div>
+              
+              {editBooking?.amendmentHistory && editBooking.amendmentHistory.length > 0 && (
+                <div className="bg-yellow-50 p-3 rounded-lg">
+                  <p className="text-sm text-yellow-800 font-medium mb-2">Previous Amendments:</p>
+                  {editBooking.amendmentHistory.slice(-2).map((amendment, index) => (
+                    <div key={index} className="text-xs text-yellow-700 mb-1">
+                      {new Date(amendment.amendedOn).toLocaleDateString()}: Extended to {new Date(amendment.newCheckOut).toLocaleDateString()}
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <Label htmlFor="newCheckOutDate">New Check-out Date</Label>
+                <Input
+                  id="newCheckOutDate"
+                  type="date"
+                  value={amendmentData.newCheckOutDate}
+                  onChange={(e) => setAmendmentData(prev => ({ ...prev, newCheckOutDate: e.target.value }))}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="amendReason">Reason for Amendment</Label>
+                <textarea
+                  id="amendReason"
+                  value={amendmentData.reason}
+                  onChange={(e) => setAmendmentData(prev => ({ ...prev, reason: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows="3"
+                  placeholder="Enter reason for date change..."
+                />
+              </div>
+              
+              {amendmentData.newCheckOutDate && (
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <p className="text-sm text-green-800">
+                    <strong>New Stay:</strong><br />
+                    Check-in: {new Date(formData.checkInDate).toLocaleDateString()} (Same)<br />
+                    Check-out: {new Date(amendmentData.newCheckOutDate).toLocaleDateString()}<br />
+                    Duration: {Math.ceil((new Date(amendmentData.newCheckOutDate) - new Date(formData.checkInDate)) / (1000 * 60 * 60 * 24))} days
+                  </p>
+                  <div className="mt-2 pt-2 border-t border-green-200">
+                    <p className="text-xs text-green-700">
+                      <strong>Amendment Summary:</strong><br />
+                      Days change: {Math.ceil((new Date(amendmentData.newCheckOutDate) - new Date(formData.checkInDate)) / (1000 * 60 * 60 * 24)) - formData.days}<br />
+                      Amendment count: {editBooking?.amendmentHistory?.length || 0}<br />
+                      {(editBooking?.amendmentHistory?.length || 0) > 0 && <span className="text-orange-600">Amendment fee: ₹500</span>}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                type="button"
+                onClick={() => setShowAmendModal(false)}
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleAmendStay}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                Amend Stay
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

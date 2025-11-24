@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Edit, XCircle, CheckCircle, Search, X, FileText, Trash2 } from "lucide-react";
+import { Edit, XCircle, CheckCircle, Search, X, FileText, Trash2, Calendar } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 import Pagination from "../common/Pagination";
 import DashboardLoader from '../DashboardLoader';
@@ -27,6 +27,12 @@ const BookingPage = () => {
   const [showCheckout, setShowCheckout] = useState(false);
   const [selectedBookingForCheckout, setSelectedBookingForCheckout] = useState(null);
   const [showOnlyExtraBed, setShowOnlyExtraBed] = useState(false);
+  const [showAmendModal, setShowAmendModal] = useState(false);
+  const [selectedBookingForAmend, setSelectedBookingForAmend] = useState(null);
+  const [amendmentData, setAmendmentData] = useState({
+    newCheckOutDate: '',
+    reason: ''
+  });
 
   const getAuthToken = () => localStorage.getItem("token");
 
@@ -241,6 +247,76 @@ const BookingPage = () => {
 
   const handleCheckoutComplete = () => {
     fetchData(); // Refresh the bookings list
+  };
+
+  const openAmendModal = async (bookingId) => {
+    const booking = bookings.find((b) => b.id === bookingId);
+    if (!booking) {
+      setError("Booking not found");
+      return;
+    }
+    if (booking.status === 'Checked Out') {
+      setError("Cannot amend checked out booking");
+      return;
+    }
+    
+    // Fetch conflicting dates
+    try {
+      const token = getAuthToken();
+      const response = await axios.get(`/api/bookings/conflicts/${bookingId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setConflictingDates(response.data.conflictingDates || []);
+    } catch (error) {
+      console.error('Error fetching conflicting dates:', error);
+      setConflictingDates([]);
+    }
+    
+    setSelectedBookingForAmend(booking);
+    setAmendmentData({
+      newCheckOutDate: '',
+      reason: ''
+    });
+    setShowAmendModal(true);
+  };
+
+  const [amendingStay, setAmendingStay] = useState(false);
+  const [conflictingDates, setConflictingDates] = useState([]);
+
+  const handleAmendStay = async () => {
+    if (!amendmentData.newCheckOutDate) {
+      setError('Please select new check-out date');
+      return;
+    }
+
+    if (new Date(selectedBookingForAmend.checkIn) >= new Date(amendmentData.newCheckOutDate)) {
+      setError('Check-out date must be after original check-in date');
+      return;
+    }
+
+    setAmendingStay(true);
+    try {
+      const token = getAuthToken();
+      const response = await axios.post(`/api/bookings/amend/${selectedBookingForAmend.id}`, amendmentData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setShowAmendModal(false);
+      setSelectedBookingForAmend(null);
+      setError(null);
+      fetchData(); // Refresh the bookings list
+      
+      // Show success message with amendment details
+      const amendment = response.data.amendment;
+      alert(`Booking stay amended successfully!\n\nRate adjustment: ₹${amendment.totalAdjustment}\nNew total: ₹${amendment.newTotalAmount}`);
+      
+    } catch (error) {
+      console.error('Error amending booking:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to amend booking';
+      setError(errorMessage);
+    } finally {
+      setAmendingStay(false);
+    }
   };
 
   const generateInvoice = async (bookingId) => {
@@ -516,6 +592,9 @@ const BookingPage = () => {
                     Status
                   </th>
                   <th className="px-2 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider hidden lg:table-cell" style={{ color: 'hsl(45, 100%, 20%)' }}>
+                    Amended
+                  </th>
+                  <th className="px-2 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider hidden lg:table-cell" style={{ color: 'hsl(45, 100%, 20%)' }}>
                     Payment
                   </th>
                   <th className="px-2 sm:px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: 'hsl(45, 100%, 20%)' }}>
@@ -595,6 +674,28 @@ const BookingPage = () => {
                         <option value="Cancelled">Cancelled</option>
                       </select>
                     </td>
+                    <td className="px-2 sm:px-4 py-3 text-sm hidden lg:table-cell">
+                      {booking._raw?.amendmentHistory && booking._raw.amendmentHistory.length > 0 ? (
+                        <div className="flex items-center">
+                          <span className="inline-block bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">
+                            {booking._raw.amendmentHistory.length}x
+                          </span>
+                          <button
+                            onClick={() => {
+                              alert(`Amendment History:\n${booking._raw.amendmentHistory.map((a, i) => 
+                                `${i+1}. ${new Date(a.amendedOn).toLocaleDateString()}: Extended to ${new Date(a.newCheckOut).toLocaleDateString()} (₹${a.totalAdjustment || 0})`
+                              ).join('\n')}`);
+                            }}
+                            className="ml-1 text-orange-600 hover:text-orange-800 text-xs"
+                            title="View amendment history"
+                          >
+                            ℹ️
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs">None</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <select
                         value={booking.status === "Checked Out" ? "Paid" : booking.paymentStatus}
@@ -628,6 +729,19 @@ const BookingPage = () => {
                           }`}
                         >
                           <Edit size={16} />
+                        </button>
+
+                        <button
+                          onClick={() => openAmendModal(booking.id)}
+                          disabled={booking.status === 'Checked Out'}
+                          title={booking.status === 'Checked Out' ? 'Cannot amend checked out booking' : 'Amend Stay Dates'}
+                          className={`p-1.5 rounded-full transition duration-300 ${
+                            booking.status === 'Checked Out' 
+                              ? 'text-gray-400 cursor-not-allowed' 
+                              : 'text-orange-600 hover:text-orange-800'
+                          }`}
+                        >
+                          <Calendar size={16} />
                         </button>
 
                         {booking.status === "Checked Out" && (
@@ -736,6 +850,31 @@ const BookingPage = () => {
                   <span className="ml-1 font-medium" style={{ color: 'hsl(45, 100%, 20%)' }}>{booking.checkOut}</span>
                 </div>
                 <div>
+                  <span style={{ color: 'hsl(45, 100%, 40%)' }}>Amended:</span>
+                  <div className="ml-1">
+                    {booking._raw?.amendmentHistory && booking._raw.amendmentHistory.length > 0 ? (
+                      <div className="flex items-center">
+                        <span className="inline-block bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">
+                          {booking._raw.amendmentHistory.length}x
+                        </span>
+                        <button
+                          onClick={() => {
+                            alert(`Amendment History:\n${booking._raw.amendmentHistory.map((a, i) => 
+                              `${i+1}. ${new Date(a.amendedOn).toLocaleDateString()}: Extended to ${new Date(a.newCheckOut).toLocaleDateString()} (₹${a.totalAdjustment || 0})`
+                            ).join('\n')}`);
+                          }}
+                          className="ml-1 text-orange-600 hover:text-orange-800 text-xs"
+                          title="View amendment history"
+                        >
+                          ℹ️
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-gray-500 text-xs">None</span>
+                    )}
+                  </div>
+                </div>
+                <div>
                   <span style={{ color: 'hsl(45, 100%, 40%)' }}>Payment:</span>
                   <select
                     value={booking.status === "Checked Out" ? "Paid" : booking.paymentStatus}
@@ -770,6 +909,24 @@ const BookingPage = () => {
                   title={booking.status === 'Checked Out' ? 'Cannot edit checked out booking' : 'Edit'}
                 >
                   <Edit size={18} />
+                </button>
+
+                <button
+                  onClick={() => openAmendModal(booking.id)}
+                  disabled={booking.status === 'Checked Out'}
+                  className={`p-2 rounded-full transition duration-300 ${
+                    booking.status === 'Checked Out' 
+                      ? 'cursor-not-allowed' 
+                      : ''
+                  }`}
+                  style={{ 
+                    color: booking.status === 'Checked Out' 
+                      ? '#9CA3AF' 
+                      : '#EA580C' 
+                  }}
+                  title={booking.status === 'Checked Out' ? 'Cannot amend checked out booking' : 'Amend Stay'}
+                >
+                  <Calendar size={18} />
                 </button>
 
                 {booking.status === "Checked Out" && (
@@ -900,6 +1057,126 @@ const BookingPage = () => {
           }}
           onCheckoutComplete={handleCheckoutComplete}
         />
+      )}
+
+      {/* Amendment Modal */}
+      {showAmendModal && selectedBookingForAmend && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Amend Booking Stay</h3>
+              <button
+                onClick={() => {
+                  setShowAmendModal(false);
+                  setSelectedBookingForAmend(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Current Stay:</strong><br />
+                  Guest: {selectedBookingForAmend.name}<br />
+                  Room: {selectedBookingForAmend.roomNumber}<br />
+                  Check-in: {selectedBookingForAmend.checkIn} (Fixed)<br />
+                  Check-out: {selectedBookingForAmend.checkOut}<br />
+                  <span className="text-xs">Amendments made: {selectedBookingForAmend._raw?.amendmentHistory?.length || 0}/3</span>
+                </p>
+              </div>
+              
+              {selectedBookingForAmend._raw?.amendmentHistory && selectedBookingForAmend._raw.amendmentHistory.length > 0 && (
+                <div className="bg-yellow-50 p-3 rounded-lg">
+                  <p className="text-sm text-yellow-800 font-medium mb-2">Previous Amendments:</p>
+                  {selectedBookingForAmend._raw.amendmentHistory.slice(-2).map((amendment, index) => (
+                    <div key={index} className="text-xs text-yellow-700 mb-1">
+                      {new Date(amendment.amendedOn).toLocaleDateString()}: Extended to {new Date(amendment.newCheckOut).toLocaleDateString()} (₹{amendment.totalAdjustment || 0})
+                    </div>
+                  ))}
+                  {selectedBookingForAmend._raw.amendmentHistory.length > 2 && (
+                    <div className="text-xs text-yellow-600 mt-1">
+                      ... and {selectedBookingForAmend._raw.amendmentHistory.length - 2} more
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">New Check-out Date</label>
+                <input
+                  type="date"
+                  value={amendmentData.newCheckOutDate}
+                  min={selectedBookingForAmend.checkIn}
+                  onChange={(e) => {
+                    const selectedDate = e.target.value;
+                    if (conflictingDates.includes(selectedDate)) {
+                      setError(`Room is not available on ${new Date(selectedDate).toLocaleDateString()}. Please select another date.`);
+                      return;
+                    }
+                    setError(null);
+                    setAmendmentData(prev => ({ ...prev, newCheckOutDate: selectedDate }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+                {conflictingDates.length > 0 && (
+                  <p className="text-xs text-red-600">
+                    Room unavailable on: {conflictingDates.slice(0, 5).map(d => new Date(d).toLocaleDateString()).join(', ')}
+                    {conflictingDates.length > 5 && ` and ${conflictingDates.length - 5} more dates`}
+                  </p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">Reason for Amendment</label>
+                <textarea
+                  value={amendmentData.reason}
+                  onChange={(e) => setAmendmentData(prev => ({ ...prev, reason: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows="3"
+                  placeholder="Enter reason for date change..."
+                />
+              </div>
+              
+              {amendmentData.newCheckOutDate && (
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <p className="text-sm text-green-800">
+                    <strong>New Stay:</strong><br />
+                    Check-in: {selectedBookingForAmend.checkIn} (Same)<br />
+                    Check-out: {new Date(amendmentData.newCheckOutDate).toLocaleDateString()}<br />
+                    Duration: {Math.ceil((new Date(amendmentData.newCheckOutDate) - new Date(selectedBookingForAmend.checkIn)) / (1000 * 60 * 60 * 24))} days
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowAmendModal(false);
+                  setSelectedBookingForAmend(null);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAmendStay}
+                disabled={amendingStay}
+                className={`px-4 py-2 text-white rounded-md transition-colors ${
+                  amendingStay 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-orange-600 hover:bg-orange-700'
+                }`}
+              >
+                {amendingStay ? 'Amending...' : 'Amend Stay'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       </div>
     </div>

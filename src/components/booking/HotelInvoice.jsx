@@ -530,6 +530,12 @@ export default function Invoice() {
               <p className="font-medium">: {invoiceData.invoiceDetails?.checkInDate}</p>
               <p className="font-bold">CheckOut Date</p>
               <p className="font-medium">: {invoiceData.invoiceDetails?.checkOutDate}</p>
+              {bookingData?.amendmentHistory && bookingData.amendmentHistory.length > 0 && (
+                <>
+                  <p className="font-bold text-red-600">Amended</p>
+                  <p className="font-medium text-red-600">: {bookingData.amendmentHistory.length} time(s)</p>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -678,6 +684,43 @@ export default function Invoice() {
           </div>
         </div>
         
+        {/* Amendment History */}
+        {bookingData?.amendmentHistory && bookingData.amendmentHistory.length > 0 && (
+          <div className="mb-4 text-xs">
+            <p className="font-bold mb-2">Amendment History:</p>
+            <div className="border border-black">
+              <table className="w-full">
+                <thead className="bg-gray-200">
+                  <tr>
+                    <th className="p-1 border border-black text-xs">Date</th>
+                    <th className="p-1 border border-black text-xs">Original Dates</th>
+                    <th className="p-1 border border-black text-xs">New Dates</th>
+                    <th className="p-1 border border-black text-xs">Adjustment</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bookingData.amendmentHistory.map((amendment, index) => (
+                    <tr key={index}>
+                      <td className="p-1 border border-black text-xs">
+                        {new Date(amendment.amendedOn).toLocaleDateString()}
+                      </td>
+                      <td className="p-1 border border-black text-xs">
+                        {new Date(amendment.originalCheckIn).toLocaleDateString()} - {new Date(amendment.originalCheckOut).toLocaleDateString()}
+                      </td>
+                      <td className="p-1 border border-black text-xs">
+                        {new Date(amendment.newCheckIn).toLocaleDateString()} - {new Date(amendment.newCheckOut).toLocaleDateString()}
+                      </td>
+                      <td className="p-1 border border-black text-xs text-right">
+                        ₹{amendment.totalAdjustment?.toFixed(2) || '0.00'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 text-xs">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 border-b border-t border-black py-4">
             <div>
