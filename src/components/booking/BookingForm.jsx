@@ -684,7 +684,7 @@ const App = () => {
         rate: finalRate
       }));
     }
-  }, [selectedRooms.map(r => r.customPrice).join(','), formData.days, formData.extraBed, formData.extraBedCharge, setFormData]);
+  }, [selectedRooms.map(r => `${r.customPrice}-${r.extraBed}`).join(','), formData.days, formData.extraBedCharge, formData.cgstRate, formData.sgstRate, setFormData]);
 
 
 
@@ -1212,9 +1212,15 @@ const App = () => {
           extraBed: Boolean(room.extraBed)
         };
       });
-
+      
+      // Set booking level extraBed and extraBedRooms
+      const roomsWithExtraBed = selectedRooms.filter(room => room.extraBed);
+      cleanFormData.extraBed = roomsWithExtraBed.length > 0;
+      cleanFormData.extraBedRooms = roomsWithExtraBed.map(room => room.room_number);
     } else {
       cleanFormData.roomRates = [];
+      cleanFormData.extraBed = false;
+      cleanFormData.extraBedRooms = [];
     }
     
 
@@ -2405,7 +2411,7 @@ const App = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="rate">Total Rate</Label>
+              <Label htmlFor="rate">Taxable Amount</Label>
               <Input
                 id="rate"
                 name="rate"
@@ -2414,7 +2420,7 @@ const App = () => {
                 readOnly
                 className="bg-gray-100"
               />
-              <p className="text-xs text-gray-500">Calculated from room rates × days ({formData.days} days)</p>
+              <p className="text-xs text-gray-500">Room cost + extra beds (before tax) - {formData.days} days</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="cgstRate">CGST Rate (%)</Label>

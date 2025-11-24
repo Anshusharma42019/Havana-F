@@ -284,9 +284,9 @@ const EditBookingForm = () => {
         noOfChildren: editBooking.noOfChildren || 0,
         roomGuestDetails: editBooking.roomGuestDetails || [],
         extraBedCharge: editBooking.extraBedCharge || 500,
-        rate: editBooking.rate || 0,
-        cgstRate: editBooking.cgstRate ? editBooking.cgstRate * 100 : 2.5,
-        sgstRate: editBooking.sgstRate ? editBooking.sgstRate * 100 : 2.5,
+        rate: editBooking.taxableAmount || editBooking.rate || 0,
+        cgstRate: editBooking.cgstRate !== undefined ? editBooking.cgstRate * 100 : 2.5,
+        sgstRate: editBooking.sgstRate !== undefined ? editBooking.sgstRate * 100 : 2.5,
         taxIncluded: editBooking.taxIncluded || false,
         serviceCharge: editBooking.serviceCharge || false,
         arrivedFrom: editBooking.arrivedFrom || '',
@@ -509,24 +509,49 @@ const EditBookingForm = () => {
         }
         
         // Set custom prices and extra bed info from booking data
-        if (editBooking?.roomRates && Array.isArray(editBooking.roomRates)) {
-          const updatedRooms = realSelectedRooms.map(room => {
-            const roomRate = editBooking.roomRates.find(r => r.roomNumber === room.room_number.toString());
-            return {
-              ...room,
-              customPrice: roomRate ? roomRate.customRate : room.price,
-              extraBed: roomRate?.extraBed || editBooking.extraBed || false
-            };
-          });
-          setSelectedRooms(updatedRooms);
-        } else if (editBooking?.extraBed) {
-          // If no roomRates but booking has extraBed, apply to all rooms
-          const updatedRooms = realSelectedRooms.map(room => ({
-            ...room,
-            extraBed: true
-          }));
-          setSelectedRooms(updatedRooms);
-        }
+        console.log('EditBooking data:', editBooking);
+        console.log('EditBooking roomRates:', editBooking?.roomRates);
+        console.log('EditBooking extraBedRooms:', editBooking?.extraBedRooms);
+        console.log('Real selected rooms:', realSelectedRooms);
+        
+        const updatedRooms = realSelectedRooms.map(room => {
+          let roomData = { ...room };
+          
+          // Set custom price from roomRates if available
+          if (editBooking?.roomRates && Array.isArray(editBooking.roomRates)) {
+            const roomRate = editBooking.roomRates.find(r => 
+              r.roomNumber === room.room_number.toString() || 
+              r.roomNumber === room.room_number
+            );
+            console.log(`Room ${room.room_number} found roomRate:`, roomRate);
+            if (roomRate) {
+              roomData.customPrice = roomRate.customRate;
+              roomData.extraBed = Boolean(roomRate.extraBed);
+              console.log(`Room ${room.room_number} extraBed from roomRate:`, roomData.extraBed);
+            }
+          }
+          
+          // Always check extraBedRooms array as primary source
+          if (editBooking?.extraBedRooms && Array.isArray(editBooking.extraBedRooms)) {
+            const isInExtraBedRooms = editBooking.extraBedRooms.includes(room.room_number.toString()) || 
+                                     editBooking.extraBedRooms.includes(room.room_number);
+            console.log(`Room ${room.room_number} in extraBedRooms:`, isInExtraBedRooms);
+            if (isInExtraBedRooms) {
+              roomData.extraBed = true;
+            }
+          }
+          
+          // Default to false if still undefined
+          if (roomData.extraBed === undefined) {
+            roomData.extraBed = false;
+          }
+          
+          console.log(`Room ${room.room_number} extraBed:`, roomData.extraBed);
+          return roomData;
+        });
+        
+        console.log('Updated rooms with extra bed info:', updatedRooms);
+        setSelectedRooms(updatedRooms);
       }
     }
   }, [allRooms, editBooking]);
@@ -573,8 +598,25 @@ const EditBookingForm = () => {
 
   // Recalculate totals when tax rates change
   useEffect(() => {
-    // This effect ensures the UI updates when CGST/SGST rates change
-    // The actual calculation is done in the Rate Breakdown section
+    if (selectedRooms.length > 0 && formData.days > 0) {
+      const totalRoomRate = selectedRooms.reduce((sum, room) => {
+        const rate = room.customPrice !== undefined && room.customPrice !== '' && room.customPrice !== null
+          ? Number(room.customPrice) 
+          : (room.price || 0);
+        return sum + rate;
+      }, 0);
+      
+      const roomRate = totalRoomRate * formData.days;
+      const extraBedCharge = selectedRooms.reduce((sum, room) => {
+        return sum + (room.extraBed ? (formData.extraBedCharge || 0) * formData.days : 0);
+      }, 0);
+      const finalRate = roomRate + extraBedCharge;
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        rate: finalRate
+      }));
+    }
   }, [formData.cgstRate, formData.sgstRate]);
 
   const handleChange = (e) => {
@@ -609,9 +651,8 @@ const EditBookingForm = () => {
     try {
       // Calculate extra bed status
       const hasExtraBed = selectedRooms.some(room => room.extraBed);
-      const totalExtraBedCharge = selectedRooms.reduce((sum, room) => {
-        return sum + (room.extraBed ? (formData.extraBedCharge || 0) * (formData.days || 1) : 0);
-      }, 0);
+      const extraBedRoomsCount = selectedRooms.filter(room => room.extraBed).length;
+      const totalExtraBedCharge = extraBedRoomsCount * (formData.extraBedCharge || 0) * (formData.days || 1);
       
       // Calculate taxable amount and tax amounts
       const roomRate = selectedRooms.reduce((sum, room) => {
@@ -631,7 +672,7 @@ const EditBookingForm = () => {
         cgstRate: formData.cgstRate / 100,
         sgstRate: formData.sgstRate / 100,
         extraBed: hasExtraBed,
-        extraBedCharge: totalExtraBedCharge,
+        extraBedCharge: formData.extraBedCharge || 0,
         taxableAmount: taxableAmount,
         cgstAmount: cgstAmount,
         sgstAmount: sgstAmount,
@@ -646,12 +687,16 @@ const EditBookingForm = () => {
         extraBedRooms: selectedRooms.filter(room => room.extraBed).map(room => room.room_number)
       };
 
-      await axios.put(`/api/bookings/update/${editBooking._id}`, updateData);
+      console.log('Sending update data:', updateData);
+      const response = await axios.put(`/api/bookings/update/${editBooking._id}`, updateData);
+      console.log('Update response:', response.data);
       showToast('Booking updated successfully!', 'success');
       navigate('/booking');
     } catch (error) {
       console.error('Error updating booking:', error);
-      showToast('Failed to update booking', 'error');
+      console.error('Error response:', error.response?.data);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update booking';
+      showToast(errorMessage, 'error');
     }
   };
 
@@ -1545,7 +1590,7 @@ const EditBookingForm = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="rate">Total Rate</Label>
+                    <Label htmlFor="rate">Taxable Amount</Label>
                     <Input
                       id="rate"
                       name="rate"
@@ -1554,7 +1599,7 @@ const EditBookingForm = () => {
                       readOnly
                       className="bg-gray-100"
                     />
-                    <p className="text-xs text-gray-500">Calculated from room rates × days</p>
+                    <p className="text-xs text-gray-500">Room cost + extra beds (before tax)</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="cgstRate">CGST Rate (%)</Label>
