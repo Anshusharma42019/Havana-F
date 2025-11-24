@@ -14,11 +14,20 @@ const RoomService = () => {
 
   useEffect(() => {
     const storedRoomData = localStorage.getItem('selectedRoomService');
+    console.log('RoomService mounted, localStorage data:', storedRoomData);
+    
     if (storedRoomData) {
-      setRoomData(JSON.parse(storedRoomData));
-      localStorage.removeItem('selectedRoomService');
+      try {
+        const parsedData = JSON.parse(storedRoomData);
+        console.log('Parsed room data:', parsedData);
+        setRoomData(parsedData);
+      } catch (error) {
+        console.error('Error parsing room data:', error);
+        navigate('/easy-dashboard');
+      }
     } else {
-      navigate('/easy-dashboard');
+      console.log('No room data found, redirecting...');
+      setTimeout(() => navigate('/easy-dashboard'), 100);
     }
     fetchItems();
   }, [navigate]);

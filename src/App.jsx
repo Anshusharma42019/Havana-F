@@ -23,6 +23,10 @@ import MenuView from './components/Banquet/pages/Students/MenuView';
 import HotelCheckout from './components/booking/HotelCheckout';
 import HotelInvoice from './components/booking/HotelInvoice';
 import HotelInventory from './components/Inventory/HotelInventory';
+import RoomService from './components/room/RoomService';
+import RoomServiceBilling from './components/room/RoomServiceBilling';
+import BillLookup from './components/room/BillLookup';
+import SaleBill from './components/room/SaleBill';
 import './App.css'
 
 function App() {
@@ -72,6 +76,12 @@ function App() {
             
             {/* Users Routes */}
             <Route path="users" element={<Users />} />
+            
+            {/* Room Service Routes */}
+            <Route path="room-service" element={<RoomService />} />
+            <Route path="room-service-billing" element={<RoomServiceBilling />} />
+            <Route path="bill-lookup" element={<BillLookup />} />
+            <Route path="sale-bill" element={<SaleBill />} />
             
             {/* Checkout Routes */}
             <Route path="hotel-checkout" element={<HotelCheckout />} />

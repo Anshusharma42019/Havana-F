@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, Bed, AlertTriangle, Clock, CalendarCheck, DoorOpen, DollarSign, Users, TrendingUp, ChevronRight, Loader2, User, Package, MapPin, ChefHat, RefreshCw } from 'lucide-react';
@@ -59,104 +58,7 @@ const fetchWithRetry = async (url, retries = 3) => {
     }
 };
 
-// --- Sub-Component: RoomCard (Themed Classy UI) ---
-const RoomCard = ({ room, currentStatus, booking, getRoomCategory, navigate, setSelectedRoom, setShowGuestDetails }) => {
-    const isAvailable = currentStatus === 'available';
-    const isBooked = currentStatus === 'booked';
 
-    // Status mapping using semantic and theme colors
-    const statusMap = {
-        'available': { 
-            bg: 'bg-green-50 hover:bg-green-100', 
-            text: 'text-green-700', 
-            accent: 'border-green-500', 
-            label: 'AVAILABLE', 
-            icon: DoorOpen 
-        },
-        'booked': { 
-            bg: 'bg-red-200 hover:bg-red-300', 
-            text: 'text-red-900', 
-            accent: 'border-red-700', 
-            label: 'OCCUPIED', 
-            icon: Users 
-        },
-        'maintenance': { 
-            bg: 'bg-yellow-100 hover:bg-yellow-200', 
-            text: 'text-yellow-800', 
-            accent: 'border-yellow-600', 
-            label: 'MAINTENANCE', 
-            icon: AlertTriangle 
-        },
-    };
-
-    const statusProps = statusMap[currentStatus] || statusMap.available;
-    const Icon = statusProps.icon;
-
-    const handleCardClick = () => {
-        if (isBooked && booking) {
-            // Navigate to room service for occupied rooms
-            const roomWithBooking = { ...room, booking };
-            localStorage.setItem('selectedRoomService', JSON.stringify(roomWithBooking));
-            navigate('/room-service');
-        } else if (isAvailable) {
-            const roomData = { 
-                roomNumber: room.room_number, 
-                category: getRoomCategory(room), 
-                roomId: room._id, 
-                rate: room.price || 0,
-                categoryId: room.category?._id || room.category
-            };
-            localStorage.setItem('selectedRoomForBooking', JSON.stringify(roomData));
-            console.log("Room selected for booking:", roomData);
-            navigate('/bookingform');
-        }
-    };
-
-    return (
-        <div
-            key={room._id}
-            className={`
-                ${statusProps.bg}
-                rounded-lg shadow-md border-t-2 ${statusProps.accent} 
-                transition-all duration-300 cursor-pointer hover:shadow-lg
-                min-h-[120px] sm:min-h-[140px]
-            `}
-            onClick={handleCardClick}
-        >
-            <div className="p-2 sm:p-3 flex flex-col items-center h-full justify-center">
-                <Icon size={16} className={`sm:w-5 sm:h-5 mb-1 ${statusProps.text}`} />
-                <div className={`font-extrabold text-xl sm:text-2xl lg:text-3xl mb-1`} style={{color: 'var(--color-text)'}}>
-                    {room.room_number}
-                </div>
-                
-                <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-1 sm:mb-2 text-gray-500 text-center">
-                    {statusProps.label}
-                </div>
-
-                {isBooked && booking ? (
-                    <div className="text-xs sm:text-sm text-gray-600 font-medium mb-1 sm:mb-2 text-center px-1">
-                        {booking.name || 'Guest'}
-                    </div>
-                ) : (
-                    <div className="text-xs sm:text-sm text-gray-400 italic mb-1 sm:mb-2 text-center px-1">
-                        {getRoomCategory(room)}
-                    </div>
-                )}
-                
-                {/* Subtle detail text */}
-                {(isBooked) && (
-                    <div className="mt-1 sm:mt-2 text-[10px] sm:text-xs text-center w-full text-gray-600">
-                        {isBooked && booking ? (
-                            <span className="font-medium block truncate px-1">
-                                Guest: {booking.name || 'Unknown'}
-                            </span>
-                        ) : null}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
 
 
 // --- Sub-Component: StatCard (Themed Classy UI) ---
@@ -567,6 +469,19 @@ const EasyDashboard = () => {
                     <span className="hidden sm:inline">HOSPITALITY MANAGEMENT</span>
                     <span className="sm:hidden">DASHBOARD</span>
                 </h1>
+                <button 
+                    onClick={() => {
+                        console.log('📝 Testing navigation manually...');
+                        const testData = { room_number: '101', booking: { name: 'Test Guest', grcNo: 'GRC001' } };
+                        localStorage.setItem('selectedRoomService', JSON.stringify(testData));
+                        console.log('🚀 Calling navigate function...');
+                        navigate('/room-service');
+                        console.log('✅ Navigate called successfully');
+                    }}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm"
+                >
+                    Test Room Service
+                </button>
             </div>
 
 
@@ -611,18 +526,64 @@ const EasyDashboard = () => {
                                 </span>
                             </h3>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2 sm:gap-3 lg:gap-4">
-                                {floorRooms.map((room) => (
-                                    <RoomCard
-                                        key={room._id}
-                                        room={room}
-                                        currentStatus={getRoomStatus(room)}
-                                        booking={getRoomBooking(room.room_number)}
-                                        getRoomCategory={getRoomCategory}
-                                        navigate={navigate}
-                                        setSelectedRoom={setSelectedRoom}
-                                        setShowGuestDetails={setShowGuestDetails}
-                                    />
-                                ))}
+                                {floorRooms.map((room) => {
+                                    const currentStatus = getRoomStatus(room);
+                                    const booking = getRoomBooking(room.room_number);
+                                    const isBooked = currentStatus === 'booked';
+                                    
+                                    return (
+                                        <div
+                                            key={room._id}
+                                            className={`
+                                                ${isBooked ? 'bg-red-200 hover:bg-red-300' : currentStatus === 'available' ? 'bg-green-50 hover:bg-green-100' : 'bg-yellow-100 hover:bg-yellow-200'}
+                                                rounded-lg shadow-md border-t-2 ${isBooked ? 'border-red-700' : currentStatus === 'available' ? 'border-green-500' : 'border-yellow-600'}
+                                                transition-all duration-300 cursor-pointer hover:shadow-lg
+                                                min-h-[120px] sm:min-h-[140px]
+                                            `}
+                                            onClick={() => {
+                                                console.log('🔥 ROOM CLICKED:', room.room_number, 'Status:', currentStatus);
+                                                
+                                                if (isBooked && booking) {
+                                                    console.log('🚀 Navigating to room service');
+                                                    const roomData = { ...room, booking };
+                                                    localStorage.setItem('selectedRoomService', JSON.stringify(roomData));
+                                                    window.location.href = '/room-service';
+                                                } else if (currentStatus === 'available') {
+                                                    console.log('📝 Navigating to booking form');
+                                                    const roomData = { 
+                                                        roomNumber: room.room_number, 
+                                                        category: getRoomCategory(room), 
+                                                        roomId: room._id, 
+                                                        rate: room.price || 0,
+                                                        categoryId: room.category?._id || room.category
+                                                    };
+                                                    localStorage.setItem('selectedRoomForBooking', JSON.stringify(roomData));
+                                                    navigate('/bookingform');
+                                                }
+                                            }}
+                                        >
+                                            <div className="p-2 sm:p-3 flex flex-col items-center h-full justify-center">
+                                                <div className={`font-extrabold text-xl sm:text-2xl lg:text-3xl mb-1`} style={{color: 'var(--color-text)'}}>
+                                                    {room.room_number}
+                                                </div>
+                                                
+                                                <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-1 sm:mb-2 text-gray-500 text-center">
+                                                    {isBooked ? 'OCCUPIED' : currentStatus === 'available' ? 'AVAILABLE' : 'MAINTENANCE'}
+                                                </div>
+
+                                                {isBooked && booking ? (
+                                                    <div className="text-xs sm:text-sm text-gray-600 font-medium mb-1 sm:mb-2 text-center px-1">
+                                                        {booking.name || 'Guest'}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs sm:text-sm text-gray-400 italic mb-1 sm:mb-2 text-center px-1">
+                                                        {getRoomCategory(room)}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     );
