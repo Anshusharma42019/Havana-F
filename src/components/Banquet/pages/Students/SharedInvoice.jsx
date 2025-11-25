@@ -16,7 +16,7 @@ const SharedInvoice = () => {
   useEffect(() => {
     const fetchBooking = async () => {
       try {
-        const res = await axios.get(`https://ashoka-api.shineinfosolutions.in/api/banquet-bookings/${id}`);
+        const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/banquet-bookings/${id}`);
         setBooking(res.data);
       } catch (error) {
         setError("Failed to load booking details. Please try again later.");

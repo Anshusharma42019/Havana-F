@@ -191,7 +191,7 @@ const ListBooking = () => {
     // Send API request to update status in backend
     axios
       .put(
-        `https://ashoka-api.shineinfosolutions.in/little/achiver/update-status/${id}`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/banquet-bookings/update-status/${id}`,
         {
           status: updatedStatus, // Boolean status value
         }
@@ -631,7 +631,7 @@ const ListBooking = () => {
                           const balanceAmount = typeof item.balance === 'object' ? (item.balance?.amount || 0) : (item.balance || 0);
                           
                           const message =
-                            `🌟 *Welcome to Hotel ASHOKA HOTEL!* 🌟\n\n` +
+                            `🌟 *Welcome to Hotel ${import.meta.env.VITE_HOTEL_NAME || 'ASHOKA HOTEL'}!* 🌟\n\n` +
                             `Here's your booking confirmation:\n\n` +
                             `📅 *Date:* ${new Date(
                               item.startDate
@@ -803,7 +803,7 @@ const ListBooking = () => {
                             const balanceAmount = typeof item.balance === 'object' ? (item.balance?.amount || 0) : (item.balance || 0);
                             
                             const message =
-                              `🌟 *Welcome to Hotel ASHOKA HOTEL!* 🌟\n\n` +
+                              `🌟 *Welcome to Hotel ${import.meta.env.VITE_HOTEL_NAME || 'ASHOKA HOTEL'}!* 🌟\n\n` +
                               `Here's your booking confirmation:\n\n` +
                               `📅 *Date:* ${new Date(
                                 item.startDate

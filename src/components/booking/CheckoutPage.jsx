@@ -30,7 +30,7 @@ const CheckoutPage = () => {
   const fetchStaff = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('https://ashoka-api.shineinfosolutions.in/api/housekeeping/available-staff', {
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/housekeeping/available-staff`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       console.log('Staff API response:', response.data);
@@ -57,7 +57,7 @@ const CheckoutPage = () => {
   const fetchBookings = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('https://ashoka-api.shineinfosolutions.in/api/bookings/all', {
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/bookings/all`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBookings(response.data);
@@ -69,7 +69,7 @@ const CheckoutPage = () => {
   const fetchRooms = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('https://ashoka-api.shineinfosolutions.in/api/rooms/all', {
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/rooms/all`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setRooms(response.data);
@@ -93,7 +93,7 @@ const CheckoutPage = () => {
       
       if (roomData) {
         try {
-          const inspectionResponse = await axios.get(`https://ashoka-api.shineinfosolutions.in/api/housekeeping/checklist/${roomData._id}`, {
+          const inspectionResponse = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/housekeeping/checklist/${roomData._id}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (Array.isArray(inspectionResponse.data)) {
@@ -111,7 +111,7 @@ const CheckoutPage = () => {
       let laundryCharges = 0;
       try {
         const grcNo = selectedBookingData?.grcNo || selectedBookingData?.guestRegistrationCardNo;
-        const laundryResponse = await axios.get(`https://ashoka-api.shineinfosolutions.in/api/laundry/by-grc/${grcNo}`, {
+        const laundryResponse = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/laundry/by-grc/${grcNo}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const laundryData = laundryResponse.data;
@@ -123,7 +123,7 @@ const CheckoutPage = () => {
       // Get room service charges
       let roomServiceCharges = 0;
       try {
-        const roomServiceResponse = await axios.get(`https://ashoka-api.shineinfosolutions.in/api/room-service/room-charges?bookingId=${bookingId}`, {
+        const roomServiceResponse = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/room-service/room-charges?bookingId=${bookingId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         roomServiceCharges = roomServiceResponse.data.totalCharges || 0;
@@ -131,7 +131,7 @@ const CheckoutPage = () => {
         console.log('No room service charges found');
       }
       
-      const checkoutResponse = await axios.post('https://ashoka-api.shineinfosolutions.in/api/checkout/create', {
+      const checkoutResponse = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/checkout/create`, {
         bookingId: bookingId,
         roomId: roomId
       }, {
@@ -185,13 +185,13 @@ const CheckoutPage = () => {
         notes: 'Room cleaning after checkout and inspection'
       };
       
-      const taskResponse = await axios.post('https://ashoka-api.shineinfosolutions.in/api/housekeeping/tasks', taskData, {
+      const taskResponse = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/housekeeping/tasks`, taskData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       // Then assign it using PUT if task creation returns an ID
       if (taskResponse.data._id) {
-        await axios.put(`https://ashoka-api.shineinfosolutions.in/api/housekeeping/tasks/${taskResponse.data._id}/assign`, {
+        await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/housekeeping/tasks/${taskResponse.data._id}/assign`, {
           assignedTo: selectedStaff
         }, {
           headers: { Authorization: `Bearer ${token}` }
@@ -227,7 +227,7 @@ const CheckoutPage = () => {
       
       // Mark room service orders as paid
       try {
-        await axios.post('https://ashoka-api.shineinfosolutions.in/api/room-service/mark-paid', {
+        await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/room-service/mark-paid`, {
           bookingId: selectedBooking
         }, {
           headers: { Authorization: `Bearer ${token}` }
@@ -237,7 +237,7 @@ const CheckoutPage = () => {
       }
       
       // Process payment
-      await axios.put(`https://ashoka-api.shineinfosolutions.in/api/checkout/${checkoutData._id}/payment`, {
+      await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/checkout/${checkoutData._id}/payment`, {
         status: 'paid',
         paidAmount: parseFloat(paymentAmount),
         method: paymentMethod
@@ -246,7 +246,7 @@ const CheckoutPage = () => {
       });
       
       // Update booking status to 'Checked Out'
-      await axios.put(`https://ashoka-api.shineinfosolutions.in/api/bookings/update/${selectedBooking}`, {
+      await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/bookings/update/${selectedBooking}`, {
         status: 'Checked Out'
       }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -258,7 +258,7 @@ const CheckoutPage = () => {
       const roomData = rooms.find(room => room.roomNumber === roomNumber || room.room_number === roomNumber);
       
       if (roomData) {
-        await axios.put(`https://ashoka-api.shineinfosolutions.in/api/rooms/update/${roomData._id}`, {
+        await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/rooms/update/${roomData._id}`, {
           status: 'available'
         }, {
           headers: { Authorization: `Bearer ${token}` }
@@ -349,7 +349,7 @@ const CheckoutPage = () => {
       // Fetch checklist from API
       let checklist = [];
       try {
-        const checklistResponse = await axios.get(`https://ashoka-api.shineinfosolutions.in/api/housekeeping/checklist/${roomData._id}`, {
+        const checklistResponse = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/housekeeping/checklist/${roomData._id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         
@@ -386,7 +386,7 @@ const CheckoutPage = () => {
         status: 'completed'
       };
       
-      await axios.post('https://ashoka-api.shineinfosolutions.in/api/housekeeping/room-inspection', inspectionData, {
+      await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/housekeeping/room-inspection`, inspectionData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

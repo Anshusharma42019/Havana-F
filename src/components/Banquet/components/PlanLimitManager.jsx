@@ -300,7 +300,7 @@ const PlanLimitManager = () => {
           toast.success('Category created successfully');
           setShowCategoryForm(false);
           // Refresh categories
-          const categoriesResponse = await axios.get('https://ashoka-api.shineinfosolutions.in/api/banquet-categories/all');
+          const categoriesResponse = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/banquet-categories/all`);
           setCategories(categoriesResponse.data || []);
         }
       } catch (error) {
