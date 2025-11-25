@@ -208,6 +208,27 @@ const Order = () => {
         }
       });
       
+      // Create KOT record
+      const kotData = {
+        kotNumber: `KOT-${Date.now()}`,
+        orderId: orderResponse.data._id,
+        orderType: 'restaurant',
+        tableNo: orderData.tableNo,
+        items: orderItems.map(item => ({
+          itemName: item.itemName,
+          quantity: item.quantity,
+          specialInstructions: item.note || ''
+        })),
+        status: 'pending'
+      };
+      
+      await axios.post('/api/kot/create', kotData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
       showToast.success('🎉 Order placed successfully!');
       setCartItems([]);
       setOrderData({ staffName: '', staffId: '', customerName: '', tableNo: '', items: [], amount: 0 });

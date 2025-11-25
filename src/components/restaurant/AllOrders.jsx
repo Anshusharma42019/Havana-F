@@ -238,53 +238,24 @@ const AllOrders = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <select
-                      value={order.status || 'pending'}
-                      onChange={(e) => updateOrderStatus(order._id, e.target.value)}
-                      className={`px-2 py-1 text-xs font-semibold rounded border-0 ${getStatusColor(order.status)}`}
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="completed">Completed</option>
-                    </select>
+                    <span className={`px-2 py-1 text-xs font-semibold rounded ${getStatusColor(order.status)}`}>
+                      {order.status || 'pending'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
                       {order.status === 'pending' && (
                         <button
-                          onClick={() => updateOrderStatus(order._id, 'preparing')}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          Start Preparing
-                        </button>
-                      )}
-                      {order.status === 'preparing' && (
-                        <button
-                          onClick={() => updateOrderStatus(order._id, 'ready')}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          Mark Ready
-                        </button>
-                      )}
-                      {order.status === 'ready' && (
-                        <button
-                          onClick={() => updateOrderStatus(order._id, 'served')}
-                          className="text-purple-600 hover:text-purple-900"
-                        >
-                          Mark Served
-                        </button>
-                      )}
-                      {order.status === 'served' && (
-                        <button
                           onClick={() => updateOrderStatus(order._id, 'completed')}
-                          className="text-gray-600 hover:text-gray-900"
+                          className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
                         >
                           Complete
                         </button>
                       )}
-                      {(order.status === 'pending' || order.status === 'preparing') && (
+                      {order.status === 'pending' && (
                         <button
                           onClick={() => updateOrderStatus(order._id, 'cancelled')}
-                          className="text-red-600 hover:text-red-900"
+                          className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
                         >
                           Cancel
                         </button>

@@ -7,12 +7,7 @@ import { Wifi, WifiOff } from 'lucide-react';
 const LiveOrders = () => {
   const { axios } = useAppContext();
   const [orders, setOrders] = useState([]);
-  const [allHistoryOrders, setAllHistoryOrders] = useState([]);
-  const [historyOrders, setHistoryOrders] = useState([]);
   const [itemStates, setItemStates] = useState({});
-  const [activeTab, setActiveTab] = useState('active');
-  const [selectedDate, setSelectedDate] = useState('');
-  const [showCalendar, setShowCalendar] = useState(false);
   
   const [isConnected] = useState(false);
 
@@ -23,109 +18,31 @@ const LiveOrders = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      console.log('KOT API response:', response.data);
-      
-      // Get menu items for price lookup
-      const menuResponse = await axios.get('/api/items/all');
-      const menuItems = Array.isArray(menuResponse.data) ? menuResponse.data : (menuResponse.data.items || []);
-      
-      // Get all orders to check payment status
-      const ordersResponse = await axios.get('/api/restaurant-orders/all', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const allOrders = ordersResponse.data;
-      
-      // Initialize item states from backend
-      const newItemStates = {};
-      
-      // Group KOTs by orderId and merge items
-      const kotsByOrder = {};
-      response.data
-        .forEach(kot => {
-          if (!kotsByOrder[kot.orderId]) {
-            kotsByOrder[kot.orderId] = {
-              ...kot,
-              allItems: [...(kot.items || [])],
-              allItemStatuses: [...(kot.itemStatuses || [])],
-              kotCount: 1
-            };
-          } else {
-            const existingItemCount = kotsByOrder[kot.orderId].allItems.length;
-            kotsByOrder[kot.orderId].allItems.push(...(kot.items || []));
-            kotsByOrder[kot.orderId].kotCount += 1;
-            
-            const adjustedStatuses = (kot.itemStatuses || []).map(status => ({
-              ...status,
-              itemIndex: status.itemIndex + existingItemCount
-            }));
-            kotsByOrder[kot.orderId].allItemStatuses.push(...adjustedStatuses);
-          }
-        });
-      
-      // Transform merged KOT data to match order format
-      const kotOrders = Object.values(kotsByOrder).map(kot => {
-          const relatedOrder = allOrders.find(order => order._id === kot.orderId);
-          
-          const enhancedItems = kot.allItems?.map((item, index) => {
-            const menuItem = menuItems.find(mi => 
-              mi._id === item.itemId || 
-              mi.name === item.itemName || 
-              mi.name === item.name
-            );
-            
-            const price = item.price || item.rate || menuItem?.Price || menuItem?.price || 0;
-            const prepTime = menuItem?.timeToPrepare || 0;
-            
-            const orderId = kot.orderId || kot._id;
-            const key = `${orderId}-${index}`;
-            const itemStatus = kot.allItemStatuses?.find(is => is.itemIndex === index)?.status || 'pending';
-            
-            newItemStates[key] = {
-              status: itemStatus,
-              checked: false
-            };
-            
-            return {
-              name: item.itemName || item.name || menuItem?.name || 'Unknown Item',
-              quantity: item.quantity || 1,
-              price: price,
-              prepTime: prepTime,
-              status: itemStatus,
-            };
-          }) || [];
-          
-          const totalAmount = enhancedItems.reduce((sum, item) => {
-            return sum + (item.price * item.quantity);
-          }, 0);
-          
-          return {
-            _id: kot.orderId || kot._id,
-            kotId: kot._id,
-            tableNo: kot.tableNo,
-            customerName: relatedOrder?.customerName || 'Guest',
-            status: kot.status || 'pending',
-            createdAt: kot.createdAt,
-            amount: totalAmount,
-            items: enhancedItems,
-            kotCount: kot.kotCount
-          };
-        });
-      
-      // Separate active and history orders
-      const activeOrders = kotOrders.filter(order => 
-        order.status === 'pending' || order.status === 'preparing' || order.status === 'ready'
-      );
-      const allHistory = kotOrders.filter(order => 
-        order.status === 'served' || order.status === 'completed' || order.status === 'cancelled'
-      );
+      // Directly use KOT data with minimal processing
+      const activeOrders = response.data
+        .filter(kot => kot.status !== 'completed' && kot.status !== 'cancelled')
+        .map(kot => ({
+          _id: kot._id,
+          kotId: kot._id,
+          tableNo: kot.tableNo,
+          customerName: 'Guest',
+          status: kot.status,
+          createdAt: kot.createdAt,
+          amount: 0,
+          items: kot.items?.map(item => ({
+            name: item.itemName,
+            quantity: item.quantity,
+            price: 0,
+            prepTime: 0,
+            status: 'pending'
+          })) || []
+        }));
       
       setOrders(activeOrders);
-      setAllHistoryOrders(allHistory);
-      setItemStates(newItemStates);
+      setItemStates({});
     } catch (error) {
       console.error('Error fetching KOT data:', error);
       setOrders([]);
-      setHistoryOrders([]);
     }
   };
 
@@ -133,19 +50,7 @@ const LiveOrders = () => {
     fetchOrders();
   }, []);
   
-  // Client-side date filtering for history orders
-  useEffect(() => {
-    if (selectedDate && selectedDate.trim() !== '') {
-      const filterDateObj = new Date(selectedDate);
-      const filtered = allHistoryOrders.filter(order => {
-        const orderDate = new Date(order.createdAt);
-        return orderDate.toDateString() === filterDateObj.toDateString();
-      });
-      setHistoryOrders(filtered);
-    } else {
-      setHistoryOrders(allHistoryOrders);
-    }
-  }, [selectedDate, allHistoryOrders]);
+
 
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
@@ -193,59 +98,15 @@ const LiveOrders = () => {
         </div>
       </div>
 
-      {/* Tab Navigation */}
+      {/* Active Orders Count */}
       <div className="mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg w-fit">
-            <button
-              onClick={() => setActiveTab('active')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'active'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              Active Orders ({orders.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'history'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              History ({historyOrders.length})
-            </button>
-          </div>
-          
-          {/* Date Filter for History */}
-          {activeTab === 'history' && (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">Filter by Date:</label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <button
-                  onClick={() => setSelectedDate('')}
-                  className="px-3 py-2 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600"
-                >
-                  Show All
-                </button>
-              </div>
-            </div>
-          )}
+        <div className="bg-white rounded-lg p-4 shadow-sm">
+          <h2 className="text-lg font-semibold text-gray-800">Active Orders ({orders.length})</h2>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {(activeTab === 'active' ? orders : historyOrders).map((order) => (
+        {orders.map((order) => (
           <div key={order._id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 min-h-[320px] flex flex-col">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-3">
@@ -350,49 +211,11 @@ const LiveOrders = () => {
             {/* Action Buttons */}
             {order.status !== 'completed' && order.status !== 'cancelled' && (
               <div className="flex flex-col gap-1">
-                {order.items?.some((item, index) => itemStates[`${order._id}-${index}`]?.checked && itemStates[`${order._id}-${index}`]?.status !== 'served' && itemStates[`${order._id}-${index}`]?.status !== 'delivered') && (
-                  <button
-                    onClick={async () => {
-                      const token = localStorage.getItem('token');
-                      const itemStatuses = [];
-                      
-                      order.items?.forEach((item, index) => {
-                        const key = `${order._id}-${index}`;
-                        if (itemStates[key]?.checked) {
-                          itemStatuses.push({itemIndex: index, status: 'served'});
-                          setItemStates(prev => ({
-                            ...prev,
-                            [key]: { 
-                              ...prev[key], 
-                              status: 'served',
-                              checked: false
-                            }
-                          }));
-                        }
-                      });
-                      
-                      if (itemStatuses.length > 0) {
-                        try {
-                          await axios.patch(`/api/kot/${order.kotId}/item-statuses`, 
-                            {itemStatuses}, 
-                            {headers: {Authorization: `Bearer ${token}`}}
-                          );
-                          fetchOrders();
-                        } catch (error) {
-                          console.error('Error updating item statuses:', error);
-                        }
-                      }
-                    }}
-                    className="w-full bg-orange-500 text-white py-1 px-2 rounded text-xs font-medium hover:bg-orange-600"
-                  >
-                    Mark Item to be Served
-                  </button>
-                )}
                 <button
                   onClick={() => updateOrderStatus(order._id, 'completed')}
-                  className="w-full bg-green-500 text-white py-1 px-2 rounded text-xs font-medium hover:bg-green-600"
+                  className="w-full bg-green-500 text-white py-2 px-3 rounded text-sm font-medium hover:bg-green-600"
                 >
-                  Mark Order Complete
+                  Complete Order
                 </button>
               </div>
             )}
@@ -414,11 +237,11 @@ const LiveOrders = () => {
         ))}
       </div>
 
-      {(activeTab === 'active' ? orders : historyOrders).length === 0 && (
+      {orders.length === 0 && (
         <div className="text-center py-12">
-          <div className="text-gray-400 text-lg mb-2">{activeTab === 'active' ? '🍳' : '📋'}</div>
+          <div className="text-gray-400 text-lg mb-2">🍳</div>
           <div className="text-gray-500">
-            {activeTab === 'active' ? 'No active orders in kitchen' : 'No order history available'}
+            No active orders in kitchen
           </div>
         </div>
       )}
