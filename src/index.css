@@ -1,1 +1,17 @@
 @import "tailwindcss";
+
+@theme {
+  --color-primary: hsl(45, 43%, 58%);
+  --color-secondary: hsl(45, 71%, 69%);
+  --color-accent: hsl(45, 100%, 80%);
+  --color-background: hsl(45, 100%, 95%);
+  --color-text: hsl(45, 100%, 20%);
+  --color-border: hsl(45, 100%, 85%);
+  --color-hover: hsl(45, 32%, 46%);
+}
+
+@layer utilities {
+  .bg-app-gradient {
+    @apply bg-gradient-to-br from-white via-gray-200 to-background;
+  }
+}

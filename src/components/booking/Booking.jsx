@@ -450,7 +450,7 @@ const BookingPage = () => {
   const updateBooking = async (bookingId, updatedData) => {
     try {
       const res = await fetch(
-        `https://ashoka-api.shineinfosolutions.in/api/bookings/update/${bookingId}`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/bookings/update/${bookingId}`,
         {
           method: "PUT",
           headers: {
@@ -493,7 +493,7 @@ const BookingPage = () => {
   const updateBookingStatus = async (bookingId, newStatus) => {
     try {
       const res = await fetch(
-        `https://ashoka-api.shineinfosolutions.in/api/bookings/update/${bookingId}`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/bookings/update/${bookingId}`,
         {
           method: "PUT",
           headers: {
@@ -524,9 +524,12 @@ const BookingPage = () => {
   }
 
   return (
-    <div className="p-6 overflow-auto h-full bg-background">
-      <div className="flex justify-between items-center mb-8 mt-6">
-        <h1 className="text-3xl font-extrabold text-[#1f2937]">Bookings</h1>
+    <div className="min-h-screen" style={{backgroundColor: 'hsl(45, 100%, 95%)'}}>
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-extrabold" style={{color: 'hsl(45, 100%, 20%)'}}>
+            Bookings
+          </h1>
         <button
           onClick={() => navigate("/bookingform")}
           className="font-semibold py-2 px-4 sm:px-6 rounded-lg shadow-md transition duration-300 text-sm sm:text-base"
@@ -595,13 +598,14 @@ const BookingPage = () => {
       )}
 
       {loading ? (
-        <div className="text-center py-10" style={{ color: 'hsl(45, 100%, 20%)' }}>
-          Loading bookings...
+        <div className="text-center py-10">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 mx-auto" style={{borderColor: 'hsl(45, 43%, 58%)'}}></div>
+          <p className="mt-4" style={{ color: 'hsl(45, 100%, 20%)' }}>Loading bookings...</p>
         </div>
       ) : (
         <>
           {/* Desktop Table View */}
-          <div className="hidden md:block rounded-xl shadow-lg overflow-hidden" style={{ backgroundColor: 'white', border: '1px solid hsl(45, 100%, 85%)' }}>
+          <div className="hidden md:block rounded-xl shadow-lg overflow-hidden bg-white" style={{ border: '1px solid hsl(45, 100%, 85%)' }}>
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead className="border-b" style={{ backgroundColor: 'hsl(45, 100%, 90%)', borderColor: 'hsl(45, 100%, 85%)' }}>
@@ -742,8 +746,8 @@ const BookingPage = () => {
           {paginatedBookings.map((booking) => (
             <div
               key={booking.id}
-              className="rounded-lg shadow-md p-4"
-              style={{ backgroundColor: 'white', border: '1px solid hsl(45, 100%, 85%)' }}
+              className="rounded-lg shadow-md p-4 bg-white"
+              style={{ border: '1px solid hsl(45, 100%, 85%)' }}
             >
               <div className="flex justify-between items-start mb-3">
                 <div>
@@ -930,6 +934,7 @@ const BookingPage = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

@@ -2,9 +2,9 @@ import { useParams } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { useReactToPrint } from "react-to-print";
-import Logo from "/src/assets/logo.png";
+import Logo from "../../../../assets/hawana png11.png";
 import { useNavigate } from "react-router-dom";
-import WebSocketStatus from '../../components/WebSocketStatus';
+
 
 const MenuView = () => {
   const { id } = useParams();
@@ -34,7 +34,7 @@ const MenuView = () => {
         // Try to fetch menu first
         try {
           const res = await axios.get(
-            `https://ashoka-api.shineinfosolutions.in/api/banquet-menus/${id}`,
+            `${import.meta.env.VITE_API_BASE_URL}/api/banquet-menus/${id}`,
             {
               headers: { Authorization: `Bearer ${token}` }
             }
@@ -48,7 +48,7 @@ const MenuView = () => {
         
         // Fallback: try to get menu from booking data
         const bookingRes = await axios.get(
-          `https://ashoka-api.shineinfosolutions.in/api/banquet-bookings/get/${id}`,
+          `${import.meta.env.VITE_API_BASE_URL}/api/banquet-bookings/get/${id}`,
           {
             headers: { Authorization: `Bearer ${token}` }
           }
@@ -106,7 +106,7 @@ const MenuView = () => {
         >
           ← Back
         </button>
-        <WebSocketStatus className="print:hidden" />
+
       </div>
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">

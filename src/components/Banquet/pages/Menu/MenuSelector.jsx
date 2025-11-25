@@ -1,7 +1,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useAppContext } from "../../../../context/AppContext";
-import useWebSocket from "../../../../hooks/useWebSocket";
 const MenuSelector = ({
   onSave,
   onSaveCategory,
@@ -23,69 +22,47 @@ const MenuSelector = ({
   const [newCategoryName, setNewCategoryName] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
 
-  // WebSocket connection for real-time updates
-  const { lastMessage, sendMessage } = useWebSocket();
-
-  // Handle real-time menu updates
-  useEffect(() => {
-    if (lastMessage) {
-      switch (lastMessage.type) {
-        case 'MENU_ITEM_CREATED':
-        case 'MENU_ITEM_UPDATED':
-        case 'MENU_ITEM_DELETED':
-          // Refresh menu items when any menu changes
-          fetchMenuItems().then(setMenuItems);
-          break;
-        case 'CATEGORY_CREATED':
-        case 'CATEGORY_UPDATED':
-        case 'CATEGORY_DELETED':
-          // Refresh categories when any category changes
-          fetchCategories().then(setCategories);
-          break;
-        default:
-          break;
-      }
-    }
-  }, [lastMessage]);
+  // WebSocket removed
+  const sendMessage = () => {};
 
   // API functions
   const fetchMenuItems = async () => {
-    const response = await axios.get('/api/menu-items');
+    const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/menu-items`);
     return response.data.success ? response.data.data : response.data;
   };
 
   const createMenuItem = async (itemData) => {
-    const response = await axios.post('/api/menu-items', itemData);
+    const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/menu-items`, itemData);
     return response.data;
   };
 
   const deleteMenuItem = async (itemId) => {
-    const response = await axios.delete(`/api/menu-items/${itemId}`);
+    const response = await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/api/menu-items/${itemId}`);
     return response.data;
   };
 
   const deleteMenuItems = async () => {
-    const response = await axios.delete('/api/menu-items');
+    const response = await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/api/menu-items`);
     return response.data;
   };
 
   const fetchCategories = async () => {
-    const response = await axios.get('/api/banquet-categories/all');
+    const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/banquet-categories/all`);
     return response.data;
   };
 
   const createCategory = async (categoryData) => {
-    const response = await axios.post('/api/banquet-categories/create', categoryData);
+    const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/banquet-categories/create`, categoryData);
     return response.data;
   };
 
   const fetchPlanLimits = async () => {
-    const response = await axios.get('/api/plan-limits/get');
+    const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/plan-limits/get`);
     return response.data;
   };
 
   const createPlanLimits = async (limitsData) => {
-    const response = await axios.post('/api/plan-limits', limitsData);
+    const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/plan-limits`, limitsData);
     return response.data;
   };
 
@@ -347,11 +324,7 @@ const MenuSelector = ({
       setNewCategoryName("");
       setShowAddCategory(false);
       
-      // Send WebSocket notification
-      sendMessage({
-        type: 'CATEGORY_CREATED',
-        data: { name: newCategoryName }
-      });
+      // WebSocket notification removed
     } catch (error) {
       console.error('Error adding category:', error);
     }
@@ -366,11 +339,7 @@ const MenuSelector = ({
         setMenuItems(updatedItems);
         setSelectedItems(prev => prev.filter(i => i !== itemName));
         
-        // Send WebSocket notification
-        sendMessage({
-          type: 'MENU_ITEM_DELETED',
-          data: { name: itemName, id: item.id }
-        });
+        // WebSocket notification removed
       }
     } catch (error) {
       console.error('Error deleting menu item:', error);

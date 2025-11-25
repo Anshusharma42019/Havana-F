@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, createContext, useContext, useMemo 
 import axios from 'axios';
 import { showToast } from '../../utils/toaster';
 import { validateEmail, validatePhone, validateRequired, validatePositiveNumber, validateDateRange, validateGST, validatePAN, validateAadhaar } from '../../utils/validation';
-
+ 
 // Apply golden theme
 const themeStyles = `
   :root {
@@ -249,7 +249,7 @@ const CarIcon = () => (
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
-  const BASE_URL = 'https://ashoka-api.shineinfosolutions.in';
+  const BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [messageType, setMessageType] = useState('info');

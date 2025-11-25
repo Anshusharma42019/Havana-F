@@ -16,21 +16,10 @@ import {
 import { useAppContext } from "../context/AppContext";
 import { useNavigate } from "react-router-dom";
 import BookingCalendar from "./BookingCalendar";
-import CashTransactionCard from "./CashTransaction/CashTransactionCard";
-import BookingCard from "./cards/BookingCard.jsx";
-import RoomCard from "./cards/RoomCard.jsx";
-import RevenueCard from "./cards/RevenueCard.jsx";
-import OccupancyCard from "./cards/OccupancyCard.jsx";
-import GuestCard from "./cards/GuestCard.jsx";
-import RatingCard from "./cards/RatingCard.jsx";
-import QuickActions from "./cards/QuickActions.jsx";
+
+
 import DashboardLoader from "./DashboardLoader";
-import {
-  revenueData,
-  occupancyData,
-  bookingSourceData,
-  roomTypeData,
-} from "../components/dashboardData.js";
+
 
 const Dashboard = () => {
   const { axios } = useAppContext();
@@ -260,57 +249,7 @@ const Dashboard = () => {
 
   // Card detail content based on active card
   const renderCardDetail = () => {
-    switch (activeCard) {
-      case "bookings":
-        return (
-          <BookingCard
-            timeFrame={timeFrame}
-            setTimeFrame={setTimeFrame}
-            selectedYear={selectedYear}
-            setSelectedYear={setSelectedYear}
-            bookingSourceData={bookingSourceData}
-          />
-        );
-      case "rooms":
-        return (
-          <RoomCard
-            timeFrame={timeFrame}
-            setTimeFrame={setTimeFrame}
-            selectedYear={selectedYear}
-            setSelectedYear={setSelectedYear}
-            roomTypeData={roomTypeData}
-          />
-        );
-
-      case "revenue":
-        return (
-          <RevenueCard
-            timeFrame={timeFrame}
-            setTimeFrame={setTimeFrame}
-            selectedYear={selectedYear}
-            setSelectedYear={setSelectedYear}
-            revenueData={revenueData}
-            bookings={bookings}
-            allServiceData={allServiceData}
-          />
-        );
-      case "occupancy":
-        return (
-          <OccupancyCard
-            timeFrame={timeFrame}
-            setTimeFrame={setTimeFrame}
-            selectedYear={selectedYear}
-            setSelectedYear={setSelectedYear}
-            occupancyData={occupancyData}
-          />
-        );
-      case "guests":
-        return <GuestCard />;
-      case "rating":
-        return <RatingCard />;
-      default:
-        return null;
-    }
+    return <div className="p-4 text-center text-gray-500">Card details coming soon...</div>;
   };
 
   if (loading) {
@@ -321,7 +260,7 @@ const Dashboard = () => {
     <div className="p-4 sm:p-6 overflow-auto h-full bg-background">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 mt-4 sm:mt-6 gap-4">
         <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-[#1f2937]">
-          ASHOKA DASHBOARD
+          HAVANA DASHBOARD
         </h1>
         <button
           onClick={handleCalendarClick}
@@ -399,8 +338,7 @@ const Dashboard = () => {
           {renderCardDetail()}
         </div>
       )}
-      {/* Cash Management */}
-      <CashTransactionCard />
+
 
       {/* Room Categories */}
       <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
@@ -454,8 +392,7 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Quick Actions */}
-      <QuickActions />
+
       {/* Add this at the very end, just before the final closing </div> */}
       <BookingCalendar
         isOpen={showCalendar}

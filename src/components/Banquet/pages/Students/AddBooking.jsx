@@ -1373,7 +1373,6 @@ import axios from "axios";
 import { useAppContext } from "../../../../context/AppContext";
 import MenuSelector from "../Menu/MenuSelector";
 import DashboardLoader from "../../../DashboardLoader";
-import useWebSocket from '../../../../hooks/useWebSocket';
 import {
   FaUser,
   FaArrowLeft,
@@ -1447,8 +1446,8 @@ const AddBooking = () => {
   const [submitSuccess, setSubmitSuccess] = useState(false); // For button animation
   const [submitError, setSubmitError] = useState(false); // For button shake
 
-  // WebSocket connection
-  const { sendMessage } = useWebSocket();
+  // WebSocket removed
+  const sendMessage = () => {};
 
   const [form, setForm] = useState({
     name: "",
@@ -1749,7 +1748,7 @@ const AddBooking = () => {
       Object.assign(payload, statusBooleans);
 
       const response = await axios.post(
-        "https://ashoka-api.shineinfosolutions.in/api/banquet-bookings/create",
+        `${import.meta.env.VITE_API_BASE_URL}/api/banquet-bookings/create`,
         payload
       );
 
