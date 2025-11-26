@@ -1270,8 +1270,8 @@ const App = () => {
     cleanFormData.rate = Number(cleanFormData.rate) || 0;
     cleanFormData.discountPercent = Number(cleanFormData.discountPercent) || 0;
     cleanFormData.days = Number(cleanFormData.days) || 0;
-    cleanFormData.cgstRate = Number(cleanFormData.cgstRate) || 2.5;
-    cleanFormData.sgstRate = Number(cleanFormData.sgstRate) || 2.5;
+    cleanFormData.cgstRate = Number(cleanFormData.cgstRate) || 0;
+    cleanFormData.sgstRate = Number(cleanFormData.sgstRate) || 0;
     
 
     
