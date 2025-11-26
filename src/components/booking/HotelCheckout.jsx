@@ -37,7 +37,7 @@ const HotelCheckout = ({ booking, onClose, onCheckoutComplete }) => {
         bookingId: bookingId,
         bookingCharges: charges.roomCharges.totalRoomCharges || 0,
         restaurantCharges: charges.summary.totalRestaurantCharges || 0,
-        roomServiceCharges: (charges.summary.totalServiceCharges || 0) - (charges.summary.totalRestaurantCharges || 0),
+        roomServiceCharges: charges.summary.totalServiceCharges || 0,
         laundryCharges: 0, // Will be added separately if needed
         inspectionCharges: 0, // Will be added separately if needed
         totalAmount: charges.summary.grandTotal || 0,
