@@ -415,6 +415,7 @@ export default function Invoice() {
               <p className="text-xs">Taramandal, Gorakhpur, Uttar Pradesh 273016</p>
               <p className="text-xs">Website: <a href="http://havana-hotel.com" className="text-blue-600">havana-hotel.com</a></p>
               <p className="text-xs">contact@hotelhavana.in</p>
+              <p className="text-xs font-semibold">GSTIN: 09ACIFA2416J1ZF</p>
             </div>
           </div>
           <div className="contact-info flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
@@ -447,7 +448,7 @@ export default function Invoice() {
               className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm flex items-center gap-2 disabled:opacity-50"
             >
               <FaWhatsapp className="text-lg" />
-'Share on WhatsApp'
+              Share on WhatsApp
             </button>
             <button
               onClick={() => window.print()}
@@ -477,7 +478,7 @@ export default function Invoice() {
                   }}
                   className="border px-1 ml-1 text-xs w-32"
                 />
-              ) : invoiceData.clientDetails?.gstin}
+              ) : ''}
             </p>
             <div className="client-info-grid grid grid-cols-3 gap-x-1 gap-y-1">
               <p className="col-span-1">Name</p>
@@ -576,6 +577,14 @@ export default function Invoice() {
                 <>
                   <p className="font-bold text-red-600">Amended</p>
                   <p className="font-medium text-red-600">: {bookingData.amendmentHistory.length} time(s)</p>
+                </>
+              )}
+              {bookingData?.advancePayments && bookingData.advancePayments.length > 0 && (
+                <>
+                  <p className="font-bold text-green-600">Total Advance Paid</p>
+                  <p className="font-medium text-green-600">: ₹{bookingData.advancePayments.reduce((sum, payment) => sum + (payment.amount || 0), 0).toFixed(2)}</p>
+                  <p className="font-bold text-green-600">Payments Count</p>
+                  <p className="font-medium text-green-600">: {bookingData.advancePayments.length} payment(s)</p>
                 </>
               )}
             </div>
@@ -690,6 +699,18 @@ export default function Invoice() {
                       <td className="p-0.5 font-bold text-right text-xs">NET AMOUNT:</td>
                       <td className="p-0.5 border-l border-black text-right font-bold text-xs">₹{calculateNetTotal()}</td>
                     </tr>
+                    {bookingData?.advancePayments && bookingData.advancePayments.length > 0 && (
+                      <>
+                        <tr className="bg-green-50">
+                          <td className="p-0.5 text-right text-xs font-medium text-green-700">Total Advance Received:</td>
+                          <td className="p-0.5 border-l border-black text-right text-xs font-bold text-green-700">₹{bookingData.advancePayments.reduce((sum, payment) => sum + (payment.amount || 0), 0).toFixed(2)}</td>
+                        </tr>
+                        <tr className="bg-orange-50">
+                          <td className="p-0.5 font-bold text-right text-xs text-orange-700">BALANCE DUE:</td>
+                          <td className="p-0.5 border-l border-black text-right font-bold text-xs text-orange-700">₹{(parseFloat(calculateNetTotal()) - bookingData.advancePayments.reduce((sum, payment) => sum + (payment.amount || 0), 0)).toFixed(2)}</td>
+                        </tr>
+                      </>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -752,6 +773,44 @@ export default function Invoice() {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Multiple Advance Payments Details */}
+        {bookingData?.advancePayments && bookingData.advancePayments.length > 0 && (
+          <div className="mb-4 text-xs">
+            <p className="font-bold mb-2">Advance Payment Details ({bookingData.advancePayments.length} payment(s)):</p>
+            <div className="border border-black bg-green-50">
+              <table className="w-full">
+                <thead className="bg-green-100">
+                  <tr>
+                    <th className="p-1 border border-black text-xs">#</th>
+                    <th className="p-1 border border-black text-xs">Amount</th>
+                    <th className="p-1 border border-black text-xs">Mode</th>
+                    <th className="p-1 border border-black text-xs">Date</th>
+                    <th className="p-1 border border-black text-xs">Reference</th>
+                    <th className="p-1 border border-black text-xs">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bookingData.advancePayments.map((payment, index) => (
+                    <tr key={index}>
+                      <td className="p-1 border border-black text-xs text-center">{index + 1}</td>
+                      <td className="p-1 border border-black text-xs text-right font-bold text-green-700">₹{payment.amount.toFixed(2)}</td>
+                      <td className="p-1 border border-black text-xs text-center">{payment.paymentMode}</td>
+                      <td className="p-1 border border-black text-xs text-center">{new Date(payment.paymentDate).toLocaleDateString()}</td>
+                      <td className="p-1 border border-black text-xs text-center">{payment.reference || '-'}</td>
+                      <td className="p-1 border border-black text-xs">{payment.notes || '-'}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-green-200">
+                    <td colSpan="1" className="p-1 border border-black font-bold text-xs text-right">Total:</td>
+                    <td className="p-1 border border-black text-xs text-right font-bold text-green-700">₹{bookingData.advancePayments.reduce((sum, payment) => sum + (payment.amount || 0), 0).toFixed(2)}</td>
+                    <td colSpan="4" className="p-1 border border-black text-xs"></td>
+                  </tr>
                 </tbody>
               </table>
             </div>
