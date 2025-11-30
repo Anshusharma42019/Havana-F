@@ -234,7 +234,10 @@ const EditBookingForm = () => {
     fromCSV: false,
     epabx: false,
     vip: false,
-    status: 'Booked'
+    status: 'Booked',
+    advancePayments: [],
+    totalAdvanceAmount: 0,
+    balanceAmount: 0
   });
 
   useEffect(() => {
@@ -323,7 +326,10 @@ const EditBookingForm = () => {
         fromCSV: editBooking.fromCSV || false,
         epabx: editBooking.epabx || false,
         vip: editBooking.vip || false,
-        status: editBooking.status || 'Booked'
+        status: editBooking.status || 'Booked',
+        advancePayments: editBooking.advancePayments || [],
+        totalAdvanceAmount: editBooking.totalAdvanceAmount || 0,
+        balanceAmount: editBooking.balanceAmount || 0
       });
     } else {
       navigate('/booking');
@@ -1859,6 +1865,173 @@ const EditBookingForm = () => {
                       value={formData.discountPercent}
                       onChange={handleChange}
                     />
+                  </div>
+
+                  {/* Multiple Advance Payments Section */}
+                  <div className="space-y-4 col-span-full">
+                    <div className="flex justify-between items-center border-t pt-4">
+                      <h3 className="text-lg font-medium text-gray-700">Advance Payments</h3>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const newPayment = {
+                            amount: 0,
+                            paymentMode: '',
+                            paymentDate: new Date().toISOString().split('T')[0],
+                            reference: '',
+                            notes: ''
+                          };
+                          setFormData(prev => ({
+                            ...prev,
+                            advancePayments: [...(prev.advancePayments || []), newPayment]
+                          }));
+                        }}
+                        className="px-3 py-1 text-sm"
+                      >
+                        + Add Payment
+                      </Button>
+                    </div>
+                    
+                    {formData.advancePayments && formData.advancePayments.length > 0 && (
+                      <div className="space-y-3">
+                        {formData.advancePayments.map((payment, index) => (
+                          <div key={index} className="border rounded-lg p-4 bg-gray-50">
+                            <div className="flex justify-between items-center mb-3">
+                              <h4 className="font-medium text-gray-800">Payment #{index + 1}</h4>
+                              <Button
+                                type="button"
+                                onClick={() => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    advancePayments: prev.advancePayments.filter((_, i) => i !== index)
+                                  }));
+                                }}
+                                className="px-2 py-1 text-xs bg-red-500 hover:bg-red-600"
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              <div className="space-y-2">
+                                <Label>Amount (₹)</Label>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={payment.amount || 0}
+                                  onChange={(e) => {
+                                    const newPayments = [...formData.advancePayments];
+                                    newPayments[index].amount = Number(e.target.value);
+                                    setFormData(prev => ({ ...prev, advancePayments: newPayments }));
+                                  }}
+                                  placeholder="Enter amount"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Payment Mode</Label>
+                                <Select
+                                  value={payment.paymentMode || ''}
+                                  onChange={(e) => {
+                                    const newPayments = [...formData.advancePayments];
+                                    newPayments[index].paymentMode = e.target.value;
+                                    setFormData(prev => ({ ...prev, advancePayments: newPayments }));
+                                  }}
+                                >
+                                  <option value="">Select Mode</option>
+                                  <option value="Cash">Cash</option>
+                                  <option value="Card">Card</option>
+                                  <option value="UPI">UPI</option>
+                                  <option value="Bank Transfer">Bank Transfer</option>
+                                  <option value="Online">Online</option>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Payment Date</Label>
+                                <Input
+                                  type="date"
+                                  value={payment.paymentDate || ''}
+                                  onChange={(e) => {
+                                    const newPayments = [...formData.advancePayments];
+                                    newPayments[index].paymentDate = e.target.value;
+                                    setFormData(prev => ({ ...prev, advancePayments: newPayments }));
+                                  }}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Reference/Transaction ID</Label>
+                                <Input
+                                  value={payment.reference || ''}
+                                  onChange={(e) => {
+                                    const newPayments = [...formData.advancePayments];
+                                    newPayments[index].reference = e.target.value;
+                                    setFormData(prev => ({ ...prev, advancePayments: newPayments }));
+                                  }}
+                                  placeholder="Transaction ID, Cheque No, etc."
+                                />
+                              </div>
+                              <div className="space-y-2 md:col-span-2">
+                                <Label>Notes</Label>
+                                <Input
+                                  value={payment.notes || ''}
+                                  onChange={(e) => {
+                                    const newPayments = [...formData.advancePayments];
+                                    newPayments[index].notes = e.target.value;
+                                    setFormData(prev => ({ ...prev, advancePayments: newPayments }));
+                                  }}
+                                  placeholder="Additional notes"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Payment Summary */}
+                    {formData.rate > 0 && (
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <h4 className="font-medium text-blue-800 mb-2">Payment Summary</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <span className="text-blue-600">Total Amount:</span>
+                            <div className="font-semibold">₹{(() => {
+                              const taxableAmount = Number(formData.rate) || 0;
+                              const cgstAmount = taxableAmount * (Number(formData.cgstRate) / 100);
+                              const sgstAmount = taxableAmount * (Number(formData.sgstRate) / 100);
+                              return (taxableAmount + cgstAmount + sgstAmount).toFixed(2);
+                            })()}</div>
+                          </div>
+                          <div>
+                            <span className="text-green-600">Total Advance Received:</span>
+                            <div className="font-semibold text-green-700">₹{(() => {
+                              const totalAdvance = (formData.advancePayments || []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+                              return totalAdvance.toFixed(2);
+                            })()}</div>
+                          </div>
+                          <div>
+                            <span className="text-orange-600">Balance Due:</span>
+                            <div className="font-semibold text-orange-700">₹{(() => {
+                              const taxableAmount = Number(formData.rate) || 0;
+                              const cgstAmount = taxableAmount * (Number(formData.cgstRate) / 100);
+                              const sgstAmount = taxableAmount * (Number(formData.sgstRate) / 100);
+                              const totalAmount = taxableAmount + cgstAmount + sgstAmount;
+                              const totalAdvance = (formData.advancePayments || []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+                              const balance = totalAmount - totalAdvance;
+                              return Math.max(0, balance).toFixed(2);
+                            })()}</div>
+                          </div>
+                        </div>
+                        {formData.advancePayments && formData.advancePayments.length > 0 && (
+                          <div className="mt-3 text-xs text-gray-600">
+                            <span className="font-medium">Payments: </span>
+                            {formData.advancePayments.map((payment, index) => (
+                              <span key={index}>
+                                ₹{(Number(payment.amount) || 0).toFixed(2)} ({payment.paymentMode}){index < formData.advancePayments.length - 1 ? ', ' : ''}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2 col-span-full">
                     <Label htmlFor="billingInstruction">Billing Instruction</Label>
