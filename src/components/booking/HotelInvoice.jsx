@@ -411,7 +411,7 @@ export default function Invoice() {
               </div>
             </div>
             <div className="text-xs text-center sm:text-left">
-              <p className="font-bold text-sm sm:text-base">HAVANA HOTEL</p>
+              <p className="font-bold text-sm sm:text-base">HOTEL HAVANA </p>
               <p className="text-xs">Deoria Bypass Rd, near LIC Office Gorakhpur</p>
               <p className="text-xs">Taramandal, Gorakhpur, Uttar Pradesh 273016</p>
               <p className="text-xs">Website: <a href="https://hotelhavana.com" className="text-blue-600">hotelhavana.com</a></p>
