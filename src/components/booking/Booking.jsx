@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Edit, XCircle, CheckCircle, Search, X, FileText, Trash2, Calendar } from "lucide-react";
+import { Edit, XCircle, CheckCircle, Search, X, FileText, Trash2, Calendar, Eye } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 import Pagination from "../common/Pagination";
 import DashboardLoader from '../DashboardLoader';
@@ -735,6 +735,14 @@ const BookingPage = () => {
                     <td className="px-4 py-3 whitespace-nowrap text-center">
                       <div className="flex space-x-1 justify-center items-center">
                         <button
+                          onClick={() => navigate(`/booking-details/${booking.id}`)}
+                          title="View Details"
+                          className="p-1.5 rounded-full transition duration-300 text-indigo-600 hover:text-indigo-800"
+                        >
+                          <Eye size={16} />
+                        </button>
+
+                        <button
                           onClick={() => navigate('/edit-booking', { state: { editBooking: booking._raw } })}
                           disabled={booking.status === 'Checked Out'}
                           title={booking.status === 'Checked Out' ? 'Cannot edit checked out booking' : 'Edit Booking'}
@@ -910,6 +918,15 @@ const BookingPage = () => {
               </div>
               
               <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 border-t" style={{ borderColor: 'hsl(45, 100%, 90%)' }}>
+                <button
+                  onClick={() => navigate(`/booking-details/${booking.id}`)}
+                  className="p-2 rounded-full transition duration-300"
+                  style={{ color: '#6366F1' }}
+                  title="View Details"
+                >
+                  <Eye size={18} />
+                </button>
+
                 <button
                   onClick={() => navigate('/edit-booking', { state: { editBooking: booking._raw } })}
                   disabled={booking.status === 'Checked Out'}

@@ -12,6 +12,7 @@ import RoomStatus from './components/room/RoomStatus';
 import Booking from './components/booking/Booking';
 import BookingForm from './components/booking/BookingForm';
 import EditBookingForm from './components/booking/EditBookingForm';
+import BookingDetails from './components/booking/BookingDetails';
 import Users from './components/Users/Users';
 import LaganCalendar from './components/Banquet/pages/Calendar/LaganCalendar';
 import ListBooking from './components/Banquet/pages/Students/ListBooking';
@@ -74,6 +75,7 @@ function App() {
             <Route path="booking" element={<Booking />} />
             <Route path="bookingform" element={<BookingForm />} />
             <Route path="edit-booking" element={<EditBookingForm />} />
+            <Route path="booking-details/:bookingId" element={<BookingDetails />} />
             <Route path="reservation" element={<div>Reservation Component</div>} />
             
             {/* Inventory Routes */}

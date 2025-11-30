@@ -263,7 +263,11 @@ export default function Invoice() {
     const baseAmount = invoiceData.payment?.taxableAmount || 0;
     const sgst = invoiceData.payment?.sgst || 0;
     const cgst = invoiceData.payment?.cgst || 0;
-    const otherChargesTotal = invoiceData.otherCharges?.reduce((sum, charge) => sum + (charge.amount || 0), 0) || 0;
+    // Only add other charges that are NOT room service (since room service is already in taxable amount)
+    const otherChargesTotal = invoiceData.otherCharges?.reduce((sum, charge) => {
+      if (charge.particulars === 'ROOM SERVICE') return sum; // Skip room service to avoid double counting
+      return sum + (charge.amount || 0);
+    }, 0) || 0;
     const exactTotal = baseAmount + sgst + cgst + otherChargesTotal;
     const roundedTotal = Math.round(exactTotal);
     const roundOff = Math.round((roundedTotal - exactTotal) * 100) / 100;
@@ -275,7 +279,11 @@ export default function Invoice() {
     const baseAmount = invoiceData.payment?.taxableAmount || 0;
     const sgst = invoiceData.payment?.sgst || 0;
     const cgst = invoiceData.payment?.cgst || 0;
-    const otherChargesTotal = invoiceData.otherCharges?.reduce((sum, charge) => sum + (charge.amount || 0), 0) || 0;
+    // Only add other charges that are NOT room service (since room service is already in taxable amount)
+    const otherChargesTotal = invoiceData.otherCharges?.reduce((sum, charge) => {
+      if (charge.particulars === 'ROOM SERVICE') return sum; // Skip room service to avoid double counting
+      return sum + (charge.amount || 0);
+    }, 0) || 0;
     const roundOff = calculateRoundOff();
     return (baseAmount + sgst + cgst + otherChargesTotal + roundOff).toFixed(2);
   };
@@ -283,6 +291,7 @@ export default function Invoice() {
   const handlePrint = useReactToPrint({
     contentRef: invoiceRef,
     documentTitle: `Invoice_${invoiceData?.invoiceDetails?.billNo || 'Unknown'}`,
+    onBeforePrint: () => setGeneratingPdf(true),
     onAfterPrint: () => setGeneratingPdf(false)
   });
 
@@ -696,12 +705,7 @@ export default function Invoice() {
                       <td className="p-0.5 text-right text-xs font-medium">CGST ({bookingData?.cgstRate !== undefined ? (bookingData.cgstRate * 100).toFixed(1) : gstRates.cgstRate}%):</td>
                       <td className="p-0.5 border-l border-black text-right text-xs">₹{invoiceData.payment?.cgst?.toFixed(2) || '0.00'}</td>
                     </tr>
-                    {invoiceData.otherCharges?.filter(charge => charge.particulars === 'ROOM SERVICE').map((charge, index) => (
-                      <tr key={index}>
-                        <td className="p-0.5 text-right text-xs font-medium">Room Service:</td>
-                        <td className="p-0.5 border-l border-black text-right text-xs">₹{charge.amount?.toFixed(2) || '0.00'}</td>
-                      </tr>
-                    ))}
+                    {/* Room service charges are already included in taxable amount, no need to show separately */}
                     <tr>
                       <td className="p-0.5 text-right text-xs font-medium">Round Off:</td>
                       <td className="p-0.5 border-l border-black text-right text-xs">{calculateRoundOff() >= 0 ? '+' : ''}{calculateRoundOff().toFixed(2)}</td>
