@@ -32,15 +32,30 @@ export const useOrderManagement = (location) => {
   });
 
   useEffect(() => {
-    fetchData();
-    
+    // If coming from dine-in, immediately set the room data
     if (location.state?.tableNumber) {
       setOrderData(prev => ({
         ...prev,
         tableNo: location.state.tableNumber,
         customerName: location.state.customerName || prev.customerName
       }));
+      
+      // Add the room to tables immediately to avoid waiting
+      setTables(prev => {
+        const existingRoom = prev.find(room => room.tableNumber === location.state.tableNumber);
+        if (!existingRoom) {
+          return [...prev, {
+            _id: `dine-in-${location.state.tableNumber}`,
+            tableNumber: location.state.tableNumber,
+            status: 'occupied',
+            guestName: location.state.customerName || 'Guest'
+          }];
+        }
+        return prev;
+      });
     }
+    
+    fetchData();
     
     // Load default GST rates
     const savedRates = localStorage.getItem('defaultGstRates');
@@ -96,19 +111,17 @@ export const useOrderManagement = (location) => {
         setStaff([]);
       }
       
-      // Fetch occupied rooms
+      // Fetch occupied rooms with optimized query
       try {
         const token = localStorage.getItem('token');
-        const bookingRes = await axios.get('/api/bookings/all', {
+        const bookingRes = await axios.get('/api/bookings/all?status=Checked In', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const bookingData = Array.isArray(bookingRes.data) ? bookingRes.data : (bookingRes.data.bookings || []);
         
-        const checkedInBookings = bookingData.filter(booking => booking.status === 'Checked In');
-        
         const occupiedRooms = [];
-        checkedInBookings.forEach(booking => {
-          if (booking.roomNumber) {
+        bookingData.forEach(booking => {
+          if (booking.roomNumber && booking.status === 'Checked In') {
             const roomNumbers = booking.roomNumber.split(',').map(num => num.trim());
             roomNumbers.forEach(roomNum => {
               occupiedRooms.push({
