@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import ashokaLogo from '../../assets/hawana png11.png';
+import ashokaLogo from '../../assets/hawana golden png.png';
 import { RiPhoneFill, RiMailFill } from 'react-icons/ri';
 import axios from 'axios';
 

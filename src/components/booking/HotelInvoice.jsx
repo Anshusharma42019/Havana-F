@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import ashokaLogo from '../../assets/hawana png11.png';
+import ashokaLogo from '../../assets/hawana golden png.png';
 import { RiPhoneFill, RiMailFill } from 'react-icons/ri';
 import { FaWhatsapp, FaFilePdf } from 'react-icons/fa';
 import { useAppContext } from '../../context/AppContext';
@@ -405,8 +405,8 @@ export default function Invoice() {
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-4 space-y-4 lg:space-y-0">
           <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
             <div className="border border-black p-2">
-              <div className="w-16 h-16 sm:w-20 sm:h-20">
-                <img src={ashokaLogo} alt="Ashoka Logo" className="w-full h-full object-cover" />
+              <div className="w-20 h-20 sm:w-24 sm:h-24">
+                <img src={ashokaLogo} alt="Havana Logo" className="w-full h-full object-contain" />
               </div>
             </div>
             <div className="text-xs text-center sm:text-left">

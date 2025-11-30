@@ -393,11 +393,10 @@ const BookingPage = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBookings(prev => prev.filter(b => b.id !== bookingId));
-      showToast.success('Booking deleted successfully');
       setError(null);
     } catch (err) {
       console.error("Error deleting booking:", err);
-      showToast.error(err.response?.data?.message || err.message || "Failed to delete booking");
+      setError(err.response?.data?.message || err.message || "Failed to delete booking");
     }
   };
 

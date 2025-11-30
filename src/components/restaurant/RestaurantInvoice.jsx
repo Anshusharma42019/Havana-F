@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
-import ashokaLogo from '../../assets/hawana png11.png';
+import ashokaLogo from '../../assets/hawana golden png.png';
 import { RiPhoneFill, RiMailFill } from 'react-icons/ri';
 import { useAppContext } from '../../context/AppContext';
 
@@ -224,7 +224,7 @@ export default function RestaurantInvoice() {
           <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-4 space-y-4 lg:space-y-0">
             <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
               <div className="border border-black p-2">
-                <div className="w-16 h-16 sm:w-20 sm:h-20">
+                <div className="w-12 h-12 sm:w-16 sm:h-16">
                   <img src={ashokaLogo} alt="Havana Logo" className="w-full h-full object-cover" />
                 </div>
               </div>

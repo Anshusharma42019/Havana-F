@@ -5,6 +5,7 @@ import { useOrderManagement } from '../../hooks/useOrderManagement';
 const Order = () => {
   const location = useLocation();
   const [isConnected] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('');
   
   const {
     menuItems,
@@ -33,13 +34,24 @@ const Order = () => {
     handlePlaceOrder
   } = useOrderManagement(location);
 
+  const categoryFilteredMenu = filteredMenu.filter(item => 
+    selectedCategory === '' || item.category === selectedCategory
+  );
+
 
 
   return (
     <div className="min-h-screen font-sans p-4 sm:p-6 bg-gradient-to-br from-[#f7f5ef] to-[#c3ad6b]/30">
       <div className="w-full bg-white/90 backdrop-blur-sm shadow-xl rounded-2xl p-6 sm:p-8 mb-8 border border-[#c3ad6b]/30">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-[#b39b5a]">Create New Order</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-[#b39b5a]">Create New Order</h2>
+            {location.state?.isDineIn && (
+              <span className="px-3 py-1 bg-[#8B4513] text-white text-xs font-medium rounded-full">
+                Dine In - Room Service
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
             <span className="text-xs font-medium text-green-600">
@@ -121,27 +133,43 @@ const Order = () => {
         </div>
       </div>
 
-      {/* Search bar section */}
+      {/* Search and Filter section */}
       <div className="w-full bg-white/90 backdrop-blur-sm shadow-xl rounded-2xl p-6 sm:p-8 mb-8 border border-[#c3ad6b]/30">
-        <label htmlFor="search-menu" className="block font-bold mb-4 text-lg text-[#b39b5a]">Search Menu</label>
-        <div className="relative">
-          <input
-            id="search-menu"
-            type="text"
-            placeholder="Search menu items..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl pl-12 pr-4 py-4 border-2 border-[#c3ad6b]/30 focus:border-[#c3ad6b] focus:ring-2 focus:ring-[#c3ad6b]/20 text-gray-700 bg-white/80 backdrop-blur-sm transition-all duration-200 text-base"
-          />
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 absolute left-4 top-1/2 transform -translate-y-1/2 text-[#c3ad6b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+        <label htmlFor="search-menu" className="block font-bold mb-4 text-lg text-[#b39b5a]">Search & Filter Menu</label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="relative">
+            <input
+              id="search-menu"
+              type="text"
+              placeholder="Search menu items..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-xl pl-12 pr-4 py-4 border-2 border-[#c3ad6b]/30 focus:border-[#c3ad6b] focus:ring-2 focus:ring-[#c3ad6b]/20 text-gray-700 bg-white/80 backdrop-blur-sm transition-all duration-200 text-base"
+            />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 absolute left-4 top-1/2 transform -translate-y-1/2 text-[#c3ad6b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <div>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full rounded-xl px-4 py-4 border-2 border-[#c3ad6b]/30 focus:border-[#c3ad6b] focus:ring-2 focus:ring-[#c3ad6b]/20 text-gray-700 bg-white/80 backdrop-blur-sm transition-all duration-200 text-base"
+            >
+              <option value="">All Categories</option>
+              {categories.map(category => (
+                <option key={category._id} value={category._id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Menu grid */}
       <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-        {filteredMenu.map(item => (
+        {categoryFilteredMenu.map(item => (
           <div key={item._id} className="bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-xl border-2 border-[#c3ad6b]/30 hover:border-[#c3ad6b] hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
             <h3 className="text-xl font-bold truncate text-[#b39b5a] mb-2">{item.name}</h3>
             <p className="text-sm mb-4 text-[#c3ad6b] font-medium">{item.foodType}</p>

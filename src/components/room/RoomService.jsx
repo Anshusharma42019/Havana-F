@@ -219,6 +219,17 @@ const RoomService = () => {
     });
   };
 
+  const handleDineIn = () => {
+    navigate('/restaurant/create-order', {
+      state: {
+        tableNumber: roomData.room_number,
+        customerName: roomData.booking?.name || 'Guest',
+        grcNo: roomData.booking?.grcNo,
+        isDineIn: true
+      }
+    });
+  };
+
   if (!roomData) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
@@ -245,6 +256,13 @@ const RoomService = () => {
           </button>
           <h1 className="text-3xl font-bold" style={{color: '#B8860B'}}>Room Service</h1>
           <div className="flex space-x-3">
+            <button 
+              onClick={handleDineIn}
+              className="px-6 py-2 rounded-lg font-medium text-white transition-colors"
+              style={{backgroundColor: '#8B4513'}}
+            >
+              Dine In
+            </button>
             <button 
               onClick={handleSaleBill}
               className="px-6 py-2 rounded-lg font-medium text-white transition-colors"

@@ -37,7 +37,8 @@ export const useOrderManagement = (location) => {
     if (location.state?.tableNumber) {
       setOrderData(prev => ({
         ...prev,
-        tableNo: location.state.tableNumber
+        tableNo: location.state.tableNumber,
+        customerName: location.state.customerName || prev.customerName
       }));
     }
     
