@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useAppContext } from "../../context/AppContext";
 import CountdownTimer from "./CountdownTimer";
+import { useKitchenSocket } from "../../hooks/useOrderSocket";
+import { useSocket } from "../../context/SocketContext";
 
 import { Wifi, WifiOff } from 'lucide-react';
 
@@ -9,7 +11,73 @@ const LiveOrders = () => {
   const [orders, setOrders] = useState([]);
   const [itemStates, setItemStates] = useState({});
   
-  const [isConnected] = useState(false);
+  // Real-time socket connection for live updates
+  const { isConnected } = useKitchenSocket({
+    onNewKOT: () => {
+      console.log('🔔 New KOT received, refreshing orders...');
+      fetchOrders();
+    },
+    onKOTStatusUpdate: (data) => {
+      console.log('🔄 KOT status updated:', data);
+      // If this KOT was cancelled, immediately remove it from view
+      if (data.status === 'cancelled' || data.status === 'completed') {
+        console.log('⚡ Removing cancelled/completed order from live view');
+        setOrders(prevOrders => prevOrders.filter(order => order._id !== data.kotId));
+      }
+      fetchOrders();
+    },
+    onNewOrder: () => {
+      console.log('📋 New order received, refreshing orders...');
+      fetchOrders();
+    }
+  });
+
+  // Additional socket listener for order status updates from AllOrders component
+  const { socket } = useSocket();
+  useEffect(() => {
+    if (socket) {
+      const handleOrderStatusUpdate = (data) => {
+        console.log('🚨 Order status updated via socket:', data);
+        if (data.status === 'cancelled' || data.status === 'completed') {
+          console.log('⚡ Removing cancelled/completed order from live view via order update');
+          // Remove orders that match this order ID
+          setOrders(prevOrders => prevOrders.filter(order => {
+            // Check if this order's orderId matches the updated order
+            return order.orderId !== data.orderId;
+          }));
+        }
+        fetchOrders();
+      };
+
+      socket.on('order-status-update', handleOrderStatusUpdate);
+      
+      return () => {
+        socket.off('order-status-update', handleOrderStatusUpdate);
+      };
+    } else {
+      console.log('⚠️ Socket not available, relying on polling for updates');
+    }
+  }, [socket]);
+
+  // Custom event listener for immediate order status updates
+  useEffect(() => {
+    const handleOrderStatusChange = (e) => {
+      const updateData = e.detail;
+      console.log('🔄 Order status changed via custom event:', updateData);
+      
+      if (updateData.status === 'cancelled' || updateData.status === 'completed') {
+        console.log('⚡ Removing cancelled/completed order from live view');
+        setOrders(prevOrders => prevOrders.filter(order => order.orderId !== updateData.orderId));
+        setTimeout(fetchOrders, 500);
+      }
+    };
+
+    window.addEventListener('orderStatusChanged', handleOrderStatusChange);
+    
+    return () => {
+      window.removeEventListener('orderStatusChanged', handleOrderStatusChange);
+    };
+  }, []);
 
   const fetchOrders = async () => {
     try {
@@ -35,8 +103,22 @@ const LiveOrders = () => {
       // Process KOT data with pricing from restaurant orders
       const activeOrders = kotResponse.data
         .filter(kot => {
-          console.log('KOT status:', kot.status);
-          return kot.status !== 'completed' && kot.status !== 'cancelled';
+          const restaurantOrder = orderMap.get(kot.orderId.toString());
+          console.log('🔍 Checking KOT:', kot._id, 'KOT Status:', kot.status, 'Order Status:', restaurantOrder?.status);
+          
+          // Check both KOT status and restaurant order status
+          const kotActive = kot.status && 
+                           kot.status.toLowerCase() !== 'completed' && 
+                           kot.status.toLowerCase() !== 'cancelled' &&
+                           kot.status.toLowerCase() !== 'cancel';
+          
+          const orderActive = !restaurantOrder || 
+                             (restaurantOrder.status.toLowerCase() !== 'completed' && 
+                              restaurantOrder.status.toLowerCase() !== 'cancelled');
+          
+          const isActive = kotActive && orderActive;
+          console.log('✅ KOT active:', kotActive, 'Order active:', orderActive, 'Final:', isActive);
+          return isActive;
         })
         .map(kot => {
           const restaurantOrder = orderMap.get(kot.orderId.toString());
@@ -45,6 +127,7 @@ const LiveOrders = () => {
           return {
             _id: kot._id,
             kotId: kot._id,
+            orderId: kot.orderId, // Add orderId for tracking
             tableNo: kot.tableNo,
             customerName: restaurantOrder?.customerName || 'Guest',
             status: kot.status,
@@ -55,7 +138,7 @@ const LiveOrders = () => {
                 oi.itemName === item.itemName
               );
               return {
-                name: item.itemName,
+                itemName: item.itemName,
                 quantity: item.quantity,
                 price: orderItem?.price || 0,
                 prepTime: 0,
@@ -76,6 +159,13 @@ const LiveOrders = () => {
 
   useEffect(() => {
     fetchOrders();
+    
+    // Set up more frequent refresh (every 10 seconds) to ensure cancelled orders are removed quickly
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 10000);
+    
+    return () => clearInterval(interval);
   }, []);
   
 
@@ -109,9 +199,12 @@ const LiveOrders = () => {
         });
       }
       
-      fetchOrders();
+      // Immediately refresh orders to reflect the change
+      await fetchOrders();
     } catch (error) {
       console.error('Error updating order status:', error);
+      // Still refresh on error to ensure UI is in sync
+      fetchOrders();
     }
   };
 
@@ -123,11 +216,25 @@ const LiveOrders = () => {
             <h1 className="text-2xl font-bold text-gray-800">Live Orders Dashboard</h1>
             <p className="text-gray-600">Manage kitchen orders</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Wifi className="w-5 h-5 text-green-500" />
-            <span className="text-sm font-medium text-green-600">
-              System Active
-            </span>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={fetchOrders}
+              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
+            >
+              Refresh
+            </button>
+            <div className="flex items-center gap-2">
+              {isConnected ? (
+                <Wifi className="w-5 h-5 text-green-500" />
+              ) : (
+                <WifiOff className="w-5 h-5 text-red-500" />
+              )}
+              <span className={`text-sm font-medium ${
+                isConnected ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {isConnected ? 'Live Updates Active' : 'Offline Mode'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -209,9 +316,9 @@ const LiveOrders = () => {
                           ? 'text-orange-600' 
                           : 'text-gray-700'
                       }`} 
-                      title={`${item.name || 'Unknown'} x ${item.quantity || 1}`}
+                      title={`${item.itemName || item.name || 'Unknown'} x ${item.quantity || 1}`}
                     >
-                      {item.name || 'Unknown'} x {item.quantity || 1}
+                      {item.itemName || item.name || 'Unknown'} x {item.quantity || 1}
                     </span>
                     <span className="text-right text-gray-600">₹{item.price || 0}</span>
                     <div className="text-right">

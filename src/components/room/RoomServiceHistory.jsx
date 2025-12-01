@@ -223,7 +223,7 @@ const RoomServiceHistory = () => {
                             >
                               Details
                             </button>
-                            {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                            {order.status !== 'completed' && order.status !== 'cancelled' && (
                               <>
                                 <button
                                   onClick={() => navigate(`/room-service/edit/${order._id}`)}
@@ -235,7 +235,7 @@ const RoomServiceHistory = () => {
                                   onClick={() => updateOrderStatus(order._id, 'cancelled')}
                                   className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
                                 >
-                                  Cancel
+                                  Delete
                                 </button>
                               </>
                             )}

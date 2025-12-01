@@ -58,6 +58,10 @@ const HotelCheckout = ({ booking, onClose, onCheckoutComplete }) => {
         laundryCharges: 0, // Will be added separately if needed
         inspectionCharges: 0, // Will be added separately if needed
         totalAmount: charges.summary.grandTotal || 0,
+        subtotal: charges.summary.subtotal || 0,
+        cgstAmount: charges.summary.cgstAmount || 0,
+        sgstAmount: charges.summary.sgstAmount || 0,
+        totalTax: charges.summary.totalTax || 0,
         status: 'pending'
       };
       
@@ -206,8 +210,20 @@ const HotelCheckout = ({ booking, onClose, onCheckoutComplete }) => {
                   <span>Inspection Charges:</span>
                   <span className="font-medium text-red-600">₹{checkoutData.inspectionCharges || 0}</span>
                 </div>
+                <div className="flex justify-between py-2 border-b">
+                  <span>Subtotal:</span>
+                  <span className="font-medium">₹{checkoutData.subtotal || 0}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b">
+                  <span>CGST (2.5%):</span>
+                  <span className="font-medium">₹{checkoutData.cgstAmount || 0}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b">
+                  <span>SGST (2.5%):</span>
+                  <span className="font-medium">₹{checkoutData.sgstAmount || 0}</span>
+                </div>
                 <div className="flex justify-between py-3 border-t-2 border-blue-200 text-lg font-bold">
-                  <span>Total Amount:</span>
+                  <span>Total with Tax:</span>
                   <span className="text-blue-600">₹{checkoutData.totalAmount || 0}</span>
                 </div>
               </div>

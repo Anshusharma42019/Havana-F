@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Phone, Mail, MapPin, Calendar, CreditCard, Bed, Users } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, MapPin, Calendar, CreditCard, Bed, Users, UtensilsCrossed, Bell, Edit2, Save, X } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import axios from 'axios';
 
@@ -11,6 +11,10 @@ const BookingDetails = () => {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [serviceCharges, setServiceCharges] = useState([]);
+  const [restaurantCharges, setRestaurantCharges] = useState([]);
+  const [editingOrder, setEditingOrder] = useState(null);
+  const [editItems, setEditItems] = useState([]);
 
   useEffect(() => {
     fetchBookingDetails();
@@ -28,11 +32,127 @@ const BookingDetails = () => {
         }
       });
       setBooking(response.data.booking);
+      
+      // Fetch service charges
+      if (response.data.booking._id) {
+        await fetchServiceCharges(response.data.booking._id, token);
+      }
     } catch (err) {
       setError(`Failed to fetch booking details: ${err.response?.data?.error || err.message}`);
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchServiceCharges = async (bookingId, token) => {
+    try {
+      console.log('Fetching charges for booking ID:', bookingId);
+      
+      // Fetch room service orders
+      const serviceResponse = await axios.get(`${BASE_URL}/api/room-service/all`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        params: { bookingId }
+      });
+      
+      // Fetch all restaurant orders
+      const restaurantResponse = await axios.get(`${BASE_URL}/api/restaurant-orders/all`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      console.log('Room service response:', serviceResponse.data);
+      console.log('Restaurant response:', restaurantResponse.data);
+      
+      // Filter restaurant orders
+      const allRestaurantOrders = restaurantResponse.data || [];
+      console.log('All restaurant orders:', allRestaurantOrders);
+      console.log('Current booking room number:', booking?.roomNumber);
+      console.log('Current booking ID:', bookingId);
+      
+      const filteredRestaurantOrders = allRestaurantOrders.filter(order => {
+        console.log('Checking order:', order._id, 'bookingId:', order.bookingId, 'tableNo:', order.tableNo, 'status:', order.status);
+        
+        // Check if order belongs to this booking
+        const matchesBookingId = (order.bookingId && order.bookingId._id === bookingId) || order.bookingId === bookingId;
+        const matchesRoomNumber = booking && order.tableNo == booking.roomNumber;
+        const matchesAnyRoom = booking && booking.roomNumber && booking.roomNumber.split(',').some(room => room.trim() == order.tableNo);
+        
+        const isForThisBooking = matchesBookingId || matchesRoomNumber || matchesAnyRoom;
+        const isNotCancelled = order.status !== 'cancelled' && order.status !== 'canceled';
+        
+        console.log('Match result:', { matchesBookingId, matchesRoomNumber, matchesAnyRoom, isForThisBooking, isNotCancelled });
+        
+        return isForThisBooking && isNotCancelled;
+      });
+      
+      // Filter room service orders to exclude cancelled ones
+      const filteredServiceOrders = (serviceResponse.data.orders || []).filter(order => 
+        order.status !== 'cancelled' && order.status !== 'canceled'
+      );
+      
+      console.log('Final filtered restaurant orders:', filteredRestaurantOrders);
+      console.log('Final filtered service orders:', filteredServiceOrders);
+      
+      setServiceCharges(filteredServiceOrders);
+      setRestaurantCharges(filteredRestaurantOrders);
+    } catch (err) {
+      console.error('Failed to fetch service charges:', err);
+    }
+  };
+
+  const handleEditOrder = (order, type) => {
+    setEditingOrder({ ...order, type });
+    setEditItems([...order.items]);
+  };
+
+  const handleSaveOrder = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const subtotal = editItems.reduce((sum, item) => {
+        const unitPrice = item.unitPrice || item.price || 0;
+        return sum + (item.quantity * unitPrice);
+      }, 0);
+      const totalAmount = subtotal; // Add tax calculation if needed
+      
+      const endpoint = editingOrder.type === 'service' 
+        ? `${BASE_URL}/api/room-service/orders/${editingOrder._id}`
+        : `${BASE_URL}/api/restaurant-orders/${editingOrder._id}`;
+      
+      await axios.put(endpoint, {
+        items: editItems,
+        subtotal,
+        totalAmount
+      }, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      // Refresh charges
+      await fetchServiceCharges(booking._id, token);
+      setEditingOrder(null);
+      setEditItems([]);
+    } catch (err) {
+      console.error('Failed to update order:', err);
+      alert('Failed to update order');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingOrder(null);
+    setEditItems([]);
+  };
+
+  const updateItemQuantity = (index, quantity) => {
+    const newItems = [...editItems];
+    newItems[index].quantity = Math.max(0, quantity);
+    
+    // Handle different property names for price and total
+    const unitPrice = newItems[index].unitPrice || newItems[index].price || 0;
+    const calculatedTotal = newItems[index].quantity * unitPrice;
+    
+    // Update both possible total property names
+    newItems[index].totalPrice = calculatedTotal;
+    newItems[index].total = calculatedTotal;
+    
+    setEditItems(newItems);
   };
 
   if (loading) {
@@ -164,6 +284,173 @@ const BookingDetails = () => {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* Room Service Charges */}
+            {serviceCharges.length > 0 && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                  <Bell className="mr-2 text-blue-600" size={20} />
+                  Room Service Orders
+                </h2>
+                <div className="space-y-4">
+                  {serviceCharges.map((order, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <p className="font-medium text-gray-800">Order #{order.orderNumber}</p>
+                          <p className="text-sm text-gray-600">{order.serviceType}</p>
+                          <p className="text-sm text-gray-600">{new Date(order.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium text-lg">₹{order.totalAmount}</span>
+                          <button
+                            onClick={() => handleEditOrder(order, 'service')}
+                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {editingOrder && editingOrder._id === order._id ? (
+                        <div className="space-y-3">
+                          {editItems.map((item, itemIndex) => (
+                            <div key={itemIndex} className="flex items-center justify-between bg-gray-50 p-3 rounded">
+                              <div className="flex-1">
+                                <p className="font-medium">{item.itemName}</p>
+                                <p className="text-sm text-gray-600">₹{item.unitPrice} each</p>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => updateItemQuantity(itemIndex, item.quantity - 1)}
+                                  className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-200"
+                                >
+                                  -
+                                </button>
+                                <span className="w-8 text-center">{item.quantity}</span>
+                                <button
+                                  onClick={() => updateItemQuantity(itemIndex, item.quantity + 1)}
+                                  className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-200"
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <div className="ml-4 font-semibold">₹{item.totalPrice}</div>
+                            </div>
+                          ))}
+                          <div className="flex justify-end space-x-2 mt-4">
+                            <button
+                              onClick={handleCancelEdit}
+                              className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+                            >
+                              <X size={16} className="inline mr-1" /> Cancel
+                            </button>
+                            <button
+                              onClick={handleSaveOrder}
+                              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                              <Save size={16} className="inline mr-1" /> Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {order.items.map((item, itemIndex) => (
+                            <div key={itemIndex} className="flex justify-between text-sm">
+                              <span>{item.itemName} x {item.quantity}</span>
+                              <span>₹{item.totalPrice}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Restaurant Charges */}
+            {restaurantCharges.length > 0 && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                  <UtensilsCrossed className="mr-2 text-blue-600" size={20} />
+                  Restaurant Orders
+                </h2>
+                <div className="space-y-4">
+                  {restaurantCharges.map((order, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <p className="font-medium text-gray-800">Table {order.tableNo}</p>
+                          <p className="text-sm text-gray-600">{new Date(order.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium text-lg">₹{order.amount}</span>
+                          <button
+                            onClick={() => handleEditOrder(order, 'restaurant')}
+                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {editingOrder && editingOrder._id === order._id ? (
+                        <div className="space-y-3">
+                          {editItems.map((item, itemIndex) => (
+                            <div key={itemIndex} className="flex items-center justify-between bg-gray-50 p-3 rounded">
+                              <div className="flex-1">
+                                <p className="font-medium">{item.name || item.itemName || 'Unknown Item'}</p>
+                                <p className="text-sm text-gray-600">₹{item.price || item.unitPrice || 0} each</p>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => updateItemQuantity(itemIndex, item.quantity - 1)}
+                                  className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-200"
+                                >
+                                  -
+                                </button>
+                                <span className="w-8 text-center">{item.quantity}</span>
+                                <button
+                                  onClick={() => updateItemQuantity(itemIndex, item.quantity + 1)}
+                                  className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-200"
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <div className="ml-4 font-semibold">₹{item.total || item.totalPrice || (item.quantity * (item.price || item.unitPrice || 0))}</div>
+                            </div>
+                          ))}
+                          <div className="flex justify-end space-x-2 mt-4">
+                            <button
+                              onClick={handleCancelEdit}
+                              className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+                            >
+                              <X size={16} className="inline mr-1" /> Cancel
+                            </button>
+                            <button
+                              onClick={handleSaveOrder}
+                              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                              <Save size={16} className="inline mr-1" /> Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {order.items.map((item, itemIndex) => (
+                            <div key={itemIndex} className="flex justify-between text-sm">
+                              <span>{item.name || item.itemName || 'Unknown Item'} x {item.quantity}</span>
+                              <span>₹{item.total || item.totalPrice || (item.price * item.quantity) || 0}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -308,7 +595,21 @@ const BookingDetails = () => {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Base Amount:</span>
-                  <span className="font-medium">₹{booking.taxableAmount || booking.rate || 0}</span>
+                  <span className="font-medium">₹{(() => {
+                    // Calculate base room rate without extra bed charges
+                    const totalRate = booking.taxableAmount || 0;
+                    const extraBedCost = booking.extraBed && booking.extraBedRooms && booking.extraBedRooms.length > 0 
+                      ? booking.roomRates?.reduce((sum, room) => {
+                          if (!room.extraBed) return sum;
+                          const startDate = new Date(room.extraBedStartDate || booking.checkInDate);
+                          const endDate = new Date(booking.checkOutDate);
+                          if (startDate >= endDate) return sum;
+                          const timeDiff = endDate.getTime() - startDate.getTime();
+                          const days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                          return sum + ((booking.extraBedCharge || 0) * Math.max(0, days));
+                        }, 0) || 0 : 0;
+                    return totalRate - extraBedCost;
+                  })()}</span>
                 </div>
                 {booking.extraBed && booking.extraBedRooms && booking.extraBedRooms.length > 0 && (
                   <div className="flex justify-between">
@@ -329,22 +630,11 @@ const BookingDetails = () => {
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-gray-600">CGST ({booking.cgstRate || 2.5}%):</span>
-                  <span className="font-medium">₹{booking.cgstAmount || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">SGST ({booking.sgstRate || 2.5}%):</span>
-                  <span className="font-medium">₹{booking.sgstAmount || 0}</span>
-                </div>
-                <div className="border-t pt-3">
-                  <div className="flex justify-between text-lg font-semibold">
-                    <span>Total Amount:</span>
-                    <span>₹{(() => {
-                      const baseAmount = booking.taxableAmount || 0;
-                      const cgst = booking.cgstAmount || 0;
-                      const sgst = booking.sgstAmount || 0;
-                      
-                      // Only add extra bed cost if actually used
+                  <span className="text-gray-600">CGST ({(booking.cgstRate * 100) || 2.5}%):</span>
+                  <span className="font-medium">₹{(() => {
+                    // Calculate subtotal: base room rate + extra bed + services (before tax)
+                    const baseRoomRate = (() => {
+                      const totalRate = booking.taxableAmount || 0;
                       const extraBedCost = booking.extraBed && booking.extraBedRooms && booking.extraBedRooms.length > 0 
                         ? booking.roomRates?.reduce((sum, room) => {
                             if (!room.extraBed) return sum;
@@ -354,10 +644,116 @@ const BookingDetails = () => {
                             const timeDiff = endDate.getTime() - startDate.getTime();
                             const days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
                             return sum + ((booking.extraBedCharge || 0) * Math.max(0, days));
-                          }, 0) || 0
-                        : 0;
+                          }, 0) || 0 : 0;
+                      return totalRate - extraBedCost;
+                    })();
+                    const extraBedCost = booking.extraBed && booking.extraBedRooms && booking.extraBedRooms.length > 0 
+                      ? booking.roomRates?.reduce((sum, room) => {
+                          if (!room.extraBed) return sum;
+                          const startDate = new Date(room.extraBedStartDate || booking.checkInDate);
+                          const endDate = new Date(booking.checkOutDate);
+                          if (startDate >= endDate) return sum;
+                          const timeDiff = endDate.getTime() - startDate.getTime();
+                          const days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                          return sum + ((booking.extraBedCharge || 0) * Math.max(0, days));
+                        }, 0) || 0 : 0;
+                    const serviceTotal = serviceCharges.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+                    const restaurantTotal = restaurantCharges.reduce((sum, order) => sum + (order.amount || 0), 0);
+                    const subtotal = baseRoomRate + extraBedCost + serviceTotal + restaurantTotal;
+                    return (subtotal * (booking.cgstRate || 0.025)).toFixed(2);
+                  })()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">SGST ({(booking.sgstRate * 100) || 2.5}%):</span>
+                  <span className="font-medium">₹{(() => {
+                    // Calculate subtotal: base room rate + extra bed + services (before tax)
+                    const baseRoomRate = (() => {
+                      const totalRate = booking.taxableAmount || 0;
+                      const extraBedCost = booking.extraBed && booking.extraBedRooms && booking.extraBedRooms.length > 0 
+                        ? booking.roomRates?.reduce((sum, room) => {
+                            if (!room.extraBed) return sum;
+                            const startDate = new Date(room.extraBedStartDate || booking.checkInDate);
+                            const endDate = new Date(booking.checkOutDate);
+                            if (startDate >= endDate) return sum;
+                            const timeDiff = endDate.getTime() - startDate.getTime();
+                            const days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                            return sum + ((booking.extraBedCharge || 0) * Math.max(0, days));
+                          }, 0) || 0 : 0;
+                      return totalRate - extraBedCost;
+                    })();
+                    const extraBedCost = booking.extraBed && booking.extraBedRooms && booking.extraBedRooms.length > 0 
+                      ? booking.roomRates?.reduce((sum, room) => {
+                          if (!room.extraBed) return sum;
+                          const startDate = new Date(room.extraBedStartDate || booking.checkInDate);
+                          const endDate = new Date(booking.checkOutDate);
+                          if (startDate >= endDate) return sum;
+                          const timeDiff = endDate.getTime() - startDate.getTime();
+                          const days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                          return sum + ((booking.extraBedCharge || 0) * Math.max(0, days));
+                        }, 0) || 0 : 0;
+                    const serviceTotal = serviceCharges.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+                    const restaurantTotal = restaurantCharges.reduce((sum, order) => sum + (order.amount || 0), 0);
+                    const subtotal = baseRoomRate + extraBedCost + serviceTotal + restaurantTotal;
+                    return (subtotal * (booking.sgstRate || 0.025)).toFixed(2);
+                  })()}</span>
+                </div>
+                {(serviceCharges.length > 0 || restaurantCharges.length > 0) && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Room Service:</span>
+                      <span className="font-medium">₹{serviceCharges.reduce((sum, order) => sum + (order.totalAmount || 0), 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Restaurant:</span>
+                      <span className="font-medium">₹{restaurantCharges.reduce((sum, order) => sum + (order.amount || 0), 0)}</span>
+                    </div>
+                  </>
+                )}
+                <div className="border-t pt-3">
+                  <div className="flex justify-between text-xl font-bold text-blue-600">
+                    <span>Grand Total:</span>
+                    <span>₹{(() => {
+                      // Calculate base room rate (without extra bed)
+                      const baseRoomRate = (() => {
+                        const totalRate = booking.taxableAmount || 0;
+                        const extraBedCost = booking.extraBed && booking.extraBedRooms && booking.extraBedRooms.length > 0 
+                          ? booking.roomRates?.reduce((sum, room) => {
+                              if (!room.extraBed) return sum;
+                              const startDate = new Date(room.extraBedStartDate || booking.checkInDate);
+                              const endDate = new Date(booking.checkOutDate);
+                              if (startDate >= endDate) return sum;
+                              const timeDiff = endDate.getTime() - startDate.getTime();
+                              const days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                              return sum + ((booking.extraBedCharge || 0) * Math.max(0, days));
+                            }, 0) || 0 : 0;
+                        return totalRate - extraBedCost;
+                      })();
                       
-                      return booking.rate || (baseAmount + extraBedCost + cgst + sgst);
+                      const extraBedCost = booking.extraBed && booking.extraBedRooms && booking.extraBedRooms.length > 0 
+                        ? booking.roomRates?.reduce((sum, room) => {
+                            if (!room.extraBed) return sum;
+                            const startDate = new Date(room.extraBedStartDate || booking.checkInDate);
+                            const endDate = new Date(booking.checkOutDate);
+                            if (startDate >= endDate) return sum;
+                            const timeDiff = endDate.getTime() - startDate.getTime();
+                            const days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                            return sum + ((booking.extraBedCharge || 0) * Math.max(0, days));
+                          }, 0) || 0 : 0;
+                      
+                      const serviceTotal = serviceCharges.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+                      const restaurantTotal = restaurantCharges.reduce((sum, order) => sum + (order.amount || 0), 0);
+                      
+                      // Subtotal = base room + extra bed + services (₹4000 + ₹1000 + ₹80 + ₹90 = ₹5170)
+                      const subtotal = baseRoomRate + extraBedCost + serviceTotal + restaurantTotal;
+                      
+                      // Calculate taxes on subtotal
+                      const cgstAmount = subtotal * (booking.cgstRate || 0.025);
+                      const sgstAmount = subtotal * (booking.sgstRate || 0.025);
+                      
+                      // Grand total = subtotal + taxes (₹5170 + ₹129.25 + ₹129.25 = ₹5428.50)
+                      const grandTotal = subtotal + cgstAmount + sgstAmount;
+                      
+                      return Math.round(grandTotal * 100) / 100; // Round to 2 decimal places
                     })()}</span>
                   </div>
                 </div>

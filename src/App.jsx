@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -41,6 +42,7 @@ import MenuItems from './components/restaurant/MenuItems';
 import Order from './components/restaurant/Order';
 import LiveOrders from './components/restaurant/LiveOrders';
 import AllOrders from './components/restaurant/AllOrders';
+import EditOrder from './components/restaurant/EditOrder';
 import KOT from './components/restaurant/KOT';
 import GSTSettings from './components/restaurant/GSTSettings';
 import RestaurantInvoice from './components/restaurant/RestaurantInvoice';
@@ -52,7 +54,8 @@ function App() {
   return (
     <AuthProvider>
       <AppProvider>
-        <Router>
+        <SocketProvider>
+          <Router>
           <Toaster position="top-right" />
           <Routes>
             {/* Public Routes */}
@@ -116,6 +119,7 @@ function App() {
             <Route path="restaurant/create-order" element={<Order />} />
             <Route path="restaurant/live-orders" element={<LiveOrders />} />
             <Route path="restaurant/all-orders" element={<AllOrders />} />
+            <Route path="restaurant/edit-order/:orderId" element={<EditOrder />} />
             <Route path="restaurant/kot" element={<KOT />} />
             <Route path="restaurant/gst-settings" element={<GSTSettings />} />
             <Route path="restaurant/invoice/:orderId" element={<RestaurantInvoice />} />
@@ -127,9 +131,10 @@ function App() {
           
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </Router>
-    </AppProvider>
+          </Routes>
+          </Router>
+        </SocketProvider>
+      </AppProvider>
     </AuthProvider>
   );
 }

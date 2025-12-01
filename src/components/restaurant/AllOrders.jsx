@@ -73,11 +73,41 @@ const AllOrders = () => {
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
       const token = localStorage.getItem('token');
+      
+      // Update restaurant order status
       await axios.patch(`/api/restaurant-orders/${orderId}/status`, {
         status: newStatus
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      
+      // Also update corresponding KOT status
+      try {
+        const kotResponse = await axios.get('/api/kot/all', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const relatedKot = kotResponse.data.find(kot => kot.orderId === orderId);
+        if (relatedKot) {
+          await axios.patch(`/api/kot/${relatedKot._id}/status`, {
+            status: newStatus
+          }, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+        }
+      } catch (kotError) {
+        console.error('Error updating KOT status:', kotError);
+      }
+      
+      // Notify other components about the status change
+      const updateData = {
+        orderId,
+        status: newStatus,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('orderStatusUpdate', JSON.stringify(updateData));
+      
+      // Trigger custom event for same-window communication
+      window.dispatchEvent(new CustomEvent('orderStatusChanged', { detail: updateData }));
       
       fetchOrders();
     } catch (error) {
@@ -188,6 +218,9 @@ const AllOrders = () => {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Payment
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -251,8 +284,23 @@ const AllOrders = () => {
                       {order.status || 'pending'}
                     </span>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                      order.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {order.paymentStatus || 'unpaid'}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
+                      {order.status === 'pending' && (
+                        <button
+                          onClick={() => navigate(`/restaurant/edit-order/${order._id}`)}
+                          className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                        >
+                          Edit
+                        </button>
+                      )}
                       {order.status === 'pending' && (
                         <button
                           onClick={() => updateOrderStatus(order._id, 'completed')}

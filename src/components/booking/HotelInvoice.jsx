@@ -357,19 +357,25 @@ export default function Invoice() {
 
   const calculateNetTotal = () => {
     if (!invoiceData) return '0.00';
-    const baseAmount = invoiceData.items?.reduce((sum, item) => {
+    
+    // Calculate taxable amount from all items (including room service and restaurant charges)
+    const taxableAmount = invoiceData.items?.reduce((sum, item) => {
       return sum + (item.isFree ? 0 : (item.amount || 0));
     }, 0) || 0;
+    
+    // Calculate taxes on the taxable amount
     const sgstRate = bookingData?.sgstRate !== undefined ? bookingData.sgstRate : (gstRates.sgstRate / 100);
     const cgstRate = bookingData?.cgstRate !== undefined ? bookingData.cgstRate : (gstRates.cgstRate / 100);
-    const sgst = baseAmount * sgstRate;
-    const cgst = baseAmount * cgstRate;
-    const otherChargesTotal = invoiceData.otherCharges?.reduce((sum, charge) => {
-      if (charge.particulars === 'ROOM SERVICE') return sum;
-      return sum + (charge.amount || 0);
-    }, 0) || 0;
+    const sgst = taxableAmount * sgstRate;
+    const cgst = taxableAmount * cgstRate;
+    
+    // Calculate round off
     const roundOff = calculateRoundOff();
-    return (baseAmount + sgst + cgst + otherChargesTotal + roundOff).toFixed(2);
+    
+    // Net total = taxable amount + taxes + round off
+    const netTotal = taxableAmount + sgst + cgst + roundOff;
+    
+    return netTotal.toFixed(2);
   };
 
   const handlePrint = useReactToPrint({

@@ -169,7 +169,7 @@ const RoomServiceDetails = () => {
         </div>
 
         {/* Action Buttons */}
-        {order.status !== 'delivered' && order.status !== 'cancelled' && (
+        {order.status !== 'completed' && order.status !== 'cancelled' && (
           <div className="mt-6 flex justify-center space-x-4">
             <button
               onClick={() => navigate(`/room-service/edit/${order._id}`)}
