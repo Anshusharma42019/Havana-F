@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Phone, Mail, MapPin, Calendar, CreditCard, Bed, Users } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
+import axios from 'axios';
 
 const BookingDetails = () => {
-  const { bookingId } = useParams();
+  const { bookingId } = useParams(); // This will now be bookingNo
   const navigate = useNavigate();
-  const { axios } = useAppContext();
+  const BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,34 +21,15 @@ const BookingDetails = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      // Try multiple endpoints to find the booking
-      let response;
-      try {
-        response = await axios.get(`/api/bookings/${bookingId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-      } catch (error) {
-        // If single booking endpoint fails, get from all bookings
-        const allBookingsResponse = await axios.get('/api/bookings/all', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const bookingsData = Array.isArray(allBookingsResponse.data) 
-          ? allBookingsResponse.data 
-          : allBookingsResponse.data.bookings || [];
-        
-        const foundBooking = bookingsData.find(b => b._id === bookingId);
-        if (!foundBooking) {
-          throw new Error('Booking not found');
+      const response = await axios.get(`${BASE_URL}/api/bookings/booking-number/${bookingId}`, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-        response = { data: foundBooking };
-      }
-      
-      // Extract booking data properly
-      const bookingData = response.data.booking || response.data;
-      setBooking(bookingData);
+      });
+      setBooking(response.data.booking);
     } catch (err) {
-      setError('Failed to fetch booking details');
-      console.error('Error fetching booking details:', err);
+      setError(`Failed to fetch booking details: ${err.response?.data?.error || err.message}`);
     } finally {
       setLoading(false);
     }
@@ -328,10 +310,22 @@ const BookingDetails = () => {
                   <span className="text-gray-600">Base Amount:</span>
                   <span className="font-medium">₹{booking.taxableAmount || booking.rate || 0}</span>
                 </div>
-                {booking.extraBedCharge && booking.extraBedCharge > 0 && (
+                {booking.extraBed && booking.extraBedRooms && booking.extraBedRooms.length > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Extra Bed:</span>
-                    <span className="font-medium">₹{booking.extraBedCharge}</span>
+                    <span className="text-gray-600">Extra Bed ({booking.extraBedRooms.join(', ')}):</span>
+                    <span className="font-medium">₹{(() => {
+                      // Calculate actual extra bed cost based on room rates
+                      const extraBedCost = booking.roomRates?.reduce((sum, room) => {
+                        if (!room.extraBed) return sum;
+                        const startDate = new Date(room.extraBedStartDate || booking.checkInDate);
+                        const endDate = new Date(booking.checkOutDate);
+                        if (startDate >= endDate) return sum;
+                        const timeDiff = endDate.getTime() - startDate.getTime();
+                        const days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                        return sum + ((booking.extraBedCharge || 0) * Math.max(0, days));
+                      }, 0) || 0;
+                      return extraBedCost;
+                    })()}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
@@ -346,12 +340,24 @@ const BookingDetails = () => {
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Total Amount:</span>
                     <span>₹{(() => {
-                      const baseAmount = booking.taxableAmount || booking.rate || 0;
-                      const extraBed = booking.extraBedCharge || 0;
+                      const baseAmount = booking.taxableAmount || 0;
                       const cgst = booking.cgstAmount || 0;
                       const sgst = booking.sgstAmount || 0;
-                      const calculatedTotal = baseAmount + extraBed + cgst + sgst;
-                      return booking.totalAmount || calculatedTotal;
+                      
+                      // Only add extra bed cost if actually used
+                      const extraBedCost = booking.extraBed && booking.extraBedRooms && booking.extraBedRooms.length > 0 
+                        ? booking.roomRates?.reduce((sum, room) => {
+                            if (!room.extraBed) return sum;
+                            const startDate = new Date(room.extraBedStartDate || booking.checkInDate);
+                            const endDate = new Date(booking.checkOutDate);
+                            if (startDate >= endDate) return sum;
+                            const timeDiff = endDate.getTime() - startDate.getTime();
+                            const days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                            return sum + ((booking.extraBedCharge || 0) * Math.max(0, days));
+                          }, 0) || 0
+                        : 0;
+                      
+                      return booking.rate || (baseAmount + extraBedCost + cgst + sgst);
                     })()}</span>
                   </div>
                 </div>

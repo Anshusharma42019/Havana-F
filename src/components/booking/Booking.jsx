@@ -475,7 +475,7 @@ const BookingPage = () => {
                     <td className="px-4 py-3 whitespace-nowrap text-center">
                       <div className="flex space-x-1 justify-center items-center">
                         <button
-                          onClick={() => navigate(`/booking-details/${booking.id}`)}
+                          onClick={() => navigate(`/booking-details/${booking._raw?.bookingNo || booking.id}`)}
                           title="View Details"
                           className="p-1.5 rounded-full transition duration-300 text-indigo-600 hover:text-indigo-800"
                         >
@@ -659,7 +659,7 @@ const BookingPage = () => {
               
               <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 border-t" style={{ borderColor: 'hsl(45, 100%, 90%)' }}>
                 <button
-                  onClick={() => navigate(`/booking-details/${booking.id}`)}
+                  onClick={() => navigate(`/booking-details/${booking._raw?.bookingNo || booking.id}`)}
                   className="p-2 rounded-full transition duration-300"
                   style={{ color: '#6366F1' }}
                   title="View Details"
