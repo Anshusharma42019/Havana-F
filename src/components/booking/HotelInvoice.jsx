@@ -29,14 +29,26 @@ export default function Invoice() {
       return existing;
     }
     
-    // Generate new invoice number
-    const timestamp = Date.now().toString().slice(-6);
-    const invoiceNumber = `${prefix}-${timestamp}`;
+    // Generate new invoice number in format HH/MM/NNNN
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = String(now.getFullYear()).slice(-2);
+    const sequence = String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0');
+    const invoiceNumber = `${prefix}/${month}/${sequence}`;
     
     // Store in localStorage
     localStorage.setItem(storageKey, invoiceNumber);
     
     return invoiceNumber;
+  };
+
+  // Format date as DD/MM/YYYY
+  const formatDate = (date = new Date()) => {
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
   useEffect(() => {
@@ -74,19 +86,19 @@ export default function Invoice() {
           },
           invoiceDetails: {
             billNo: await getOrGenerateInvoiceNumber(orderData._id || checkoutId, 'REST'),
-            billDate: new Date().toLocaleDateString(),
+            billDate: formatDate(),
             grcNo: await getOrGenerateInvoiceNumber(orderData._id || checkoutId, 'GRC'),
             roomNo: `Table ${orderData.tableNo || 'N/A'}`,
             roomType: 'Restaurant',
             pax: orderData.pax || 1,
             adult: orderData.adult || 1,
-            checkInDate: new Date().toLocaleDateString(),
-            checkOutDate: new Date().toLocaleDateString()
+            checkInDate: formatDate(),
+            checkOutDate: formatDate()
           },
           items: orderData.items?.map((item, index) => {
             const itemPrice = item.isFree ? 0 : (typeof item === 'object' ? (item.price || item.Price || 0) : 0);
             return {
-              date: new Date().toLocaleDateString(),
+              date: formatDate(),
               particulars: typeof item === 'string' ? item : (item.name || item.itemName || 'Unknown Item'),
               pax: 1,
               declaredRate: itemPrice,
@@ -150,12 +162,19 @@ export default function Invoice() {
         // Use the invoice data directly from API response
         const mappedData = response.data.invoice;
         
-        // Ensure invoice numbers are persistent
+        // Ensure invoice numbers are persistent and dates are formatted
         if (mappedData.invoiceDetails) {
           const billNo = await getOrGenerateInvoiceNumber(checkoutId, 'HH');
           const grcNo = await getOrGenerateInvoiceNumber(checkoutId, 'GRC');
           mappedData.invoiceDetails.billNo = billNo;
           mappedData.invoiceDetails.grcNo = grcNo;
+          mappedData.invoiceDetails.billDate = formatDate(mappedData.invoiceDetails.billDate);
+          if (mappedData.invoiceDetails.checkInDate) {
+            mappedData.invoiceDetails.checkInDate = formatDate(mappedData.invoiceDetails.checkInDate);
+          }
+          if (mappedData.invoiceDetails.checkOutDate) {
+            mappedData.invoiceDetails.checkOutDate = formatDate(mappedData.invoiceDetails.checkOutDate);
+          }
         }
         
         // Extra bed charges are now handled in the backend checkout controller
