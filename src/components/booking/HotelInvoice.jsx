@@ -25,14 +25,18 @@ export default function Invoice() {
     const storageKey = `invoice_${prefix}_${orderId}`;
     const existing = localStorage.getItem(storageKey);
     
+    // For testing - uncomment to reset invoice numbers
+    // localStorage.removeItem(storageKey);
+    
     if (existing) {
       return existing;
     }
     
-    // Get next sequence number
+    // Get next sequence number (resets monthly)
     const now = new Date();
+    const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
-    const counterKey = `invoice_counter_${prefix}_${month}`;
+    const counterKey = `invoice_counter_${prefix}_${year}_${month}`;
     
     let counter = parseInt(localStorage.getItem(counterKey) || '0');
     counter += 1;
