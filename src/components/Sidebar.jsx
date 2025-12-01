@@ -311,10 +311,10 @@ const Sidebar = () => {
       ],
     },
     
-    // Inventory
+    // Hotel Inventory
     {
       icon: Warehouse,
-      label: "Inventory",
+      label: "Hotel Inventory",
       path: "/inventory",
     },
     
