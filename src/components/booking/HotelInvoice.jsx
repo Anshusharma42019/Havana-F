@@ -29,14 +29,19 @@ export default function Invoice() {
       return existing;
     }
     
-    // Generate new invoice number in format HH/MM/NNNN
+    // Get next sequence number
     const now = new Date();
     const month = String(now.getMonth() + 1).padStart(2, '0');
-    const year = String(now.getFullYear()).slice(-2);
-    const sequence = String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0');
+    const counterKey = `invoice_counter_${prefix}_${month}`;
+    
+    let counter = parseInt(localStorage.getItem(counterKey) || '0');
+    counter += 1;
+    
+    const sequence = String(counter).padStart(4, '0');
     const invoiceNumber = `${prefix}/${month}/${sequence}`;
     
-    // Store in localStorage
+    // Update counter and store invoice number
+    localStorage.setItem(counterKey, counter.toString());
     localStorage.setItem(storageKey, invoiceNumber);
     
     return invoiceNumber;
