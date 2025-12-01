@@ -633,8 +633,6 @@ export default function Invoice() {
               ))}
               <tr className="border border-black bg-gray-100">
                 <td colSpan="2" className="p-1 text-right font-bold border border-black">SUB TOTAL :</td>
-                <td className="p-1 text-right border border-black font-bold">₹{invoiceData.taxes?.[0]?.taxableAmount?.toFixed(2)}</td>
-                <td colSpan="3" className="p-1 text-right font-bold border border-black">SUB TOTAL :</td>
                 <td className="p-1 text-right border border-black font-bold">₹{(() => {
                   if (!invoiceData?.items) return '0.00';
                   const declaredRateTotal = invoiceData.items.reduce((sum, item) => {
