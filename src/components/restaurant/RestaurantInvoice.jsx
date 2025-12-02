@@ -254,13 +254,6 @@ export default function RestaurantInvoice() {
             </div>
             <div className="flex gap-2 no-print">
               <button
-                onClick={isEditing ? saveInvoiceUpdates : () => setIsEditing(true)}
-                disabled={saving}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : (isEditing ? 'Save' : 'Edit')}
-              </button>
-              <button
                 onClick={() => window.print()}
                 className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
               >
