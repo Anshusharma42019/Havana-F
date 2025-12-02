@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { showToast } from '../../utils/toaster';
 import {
   FaUser,
@@ -155,6 +156,7 @@ const Checkbox = ({ id, checked, onChange, className = "" }) => (
 
 const EditBookingForm = () => {
   const { axios } = useAppContext();
+  const { hasRole } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const editBooking = location.state?.editBooking;
@@ -226,6 +228,7 @@ const EditBookingForm = () => {
     discountPercent: 0,
     discountRoomSource: 0,
     discountNotes: '',
+    nonChargeable: false,
     paymentMode: '',
     paymentStatus: 'Pending',
     bookingRefNo: '',
@@ -319,6 +322,7 @@ const EditBookingForm = () => {
         discountPercent: editBooking.discountPercent || 0,
         discountRoomSource: editBooking.discountRoomSource || 0,
         discountNotes: editBooking.discountNotes || '',
+        nonChargeable: editBooking.nonChargeable || false,
         paymentMode: editBooking.paymentMode || '',
         paymentStatus: editBooking.paymentStatus || 'Pending',
         bookingRefNo: editBooking.bookingRefNo || '',
@@ -648,6 +652,15 @@ const EditBookingForm = () => {
   // Recalculate rate when extra bed changes
   useEffect(() => {
     if (selectedRooms.length > 0 && formData.days > 0) {
+      // If non-chargeable, set rate to 0
+      if (formData.nonChargeable) {
+        setFormData(prev => ({ 
+          ...prev, 
+          rate: 0
+        }));
+        return;
+      }
+      
       const totalRoomRate = selectedRooms.reduce((sum, room) => {
         const rate = room.customPrice !== undefined && room.customPrice !== '' && room.customPrice !== null
           ? Number(room.customPrice) 
@@ -678,7 +691,7 @@ const EditBookingForm = () => {
         rate: finalRate
       }));
     }
-  }, [selectedRooms.map(r => `${r.customPrice}-${r.extraBed}-${r.extraBedStartDate}`).join(','), formData.days, formData.extraBedCharge, formData.checkInDate, formData.checkOutDate]);
+  }, [selectedRooms.map(r => `${r.customPrice}-${r.extraBed}-${r.extraBedStartDate}`).join(','), formData.days, formData.extraBedCharge, formData.checkInDate, formData.checkOutDate, formData.nonChargeable]);
 
   // Recalculate totals when tax rates change
   useEffect(() => {
@@ -2043,9 +2056,33 @@ const EditBookingForm = () => {
                           const subtotal = roomRate + extraBedTotal + roomServiceTotal + restaurantTotal;
                           const discountAmount = subtotal * (Number(formData.discountPercent || 0) / 100);
                           const discountedSubtotal = subtotal - discountAmount;
-                          const cgstAmount = discountedSubtotal * (Number(formData.cgstRate || 0) / 100);
-                          const sgstAmount = discountedSubtotal * (Number(formData.sgstRate || 0) / 100);
-                          const totalWithTax = discountedSubtotal + cgstAmount + sgstAmount;
+                          
+                          // If non-chargeable, all amounts are 0
+                          let cgstAmount, sgstAmount, totalWithTax;
+                          if (formData.nonChargeable) {
+                            cgstAmount = 0;
+                            sgstAmount = 0;
+                            totalWithTax = 0;
+                          } else {
+                            cgstAmount = discountedSubtotal * (Number(formData.cgstRate || 0) / 100);
+                            sgstAmount = discountedSubtotal * (Number(formData.sgstRate || 0) / 100);
+                            totalWithTax = discountedSubtotal + cgstAmount + sgstAmount;
+                          }
+                          
+                          // If non-chargeable, show zero amounts
+                          if (formData.nonChargeable) {
+                            return (
+                              <>
+                                <div className="flex justify-between text-green-600 font-medium">
+                                  <span>Non-Chargeable Booking:</span>
+                                  <span>₹0.00</span>
+                                </div>
+                                <div className="text-xs text-green-600 mt-1">
+                                  This booking has been marked as non-chargeable by authorized personnel.
+                                </div>
+                              </>
+                            );
+                          }
                           
                           return (
                             <>
@@ -2146,9 +2183,29 @@ const EditBookingForm = () => {
                       max="100"
                       value={formData.discountPercent}
                       onChange={handleChange}
+                      disabled={formData.nonChargeable}
                     />
                   </div>
-                  {formData.discountPercent > 0 && (
+                  {hasRole(['ADMIN', 'GM']) && (
+                    <div className="space-y-2 flex items-center gap-2">
+                      <Checkbox
+                        id="nonChargeable"
+                        checked={formData.nonChargeable}
+                        onChange={(e) => {
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            nonChargeable: e.target.checked,
+                            discountPercent: e.target.checked ? 0 : prev.discountPercent,
+                            discountNotes: e.target.checked ? '' : prev.discountNotes
+                          }));
+                        }}
+                      />
+                      <Label htmlFor="nonChargeable" className="text-orange-600 font-medium">
+                        Non-Chargeable (GM Authority)
+                      </Label>
+                    </div>
+                  )}
+                  {formData.discountPercent > 0 && !formData.nonChargeable && (
                     <div className="space-y-2 col-span-full">
                       <Label htmlFor="discountNotes">
                         Discount Notes <span className="text-red-500">*</span>
@@ -2165,6 +2222,20 @@ const EditBookingForm = () => {
                         required
                       />
                       <p className="text-xs text-red-600">Note: Discount notes are mandatory when discount is applied</p>
+                    </div>
+                  )}
+                  {formData.nonChargeable && (
+                    <div className="space-y-2 col-span-full">
+                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FaInfoCircle className="text-orange-600" />
+                          <span className="font-medium text-orange-800">Non-Chargeable Booking</span>
+                        </div>
+                        <p className="text-sm text-orange-700">
+                          This booking has been marked as non-chargeable by authorized personnel (General Manager). 
+                          All charges including room rates, taxes, and additional services will be set to ₹0.
+                        </p>
+                      </div>
                     </div>
                   )}
 
@@ -2300,7 +2371,7 @@ const EditBookingForm = () => {
                               const discountedAmount = taxableAmount - discountAmount;
                               const cgstAmount = discountedAmount * (Number(formData.cgstRate) / 100);
                               const sgstAmount = discountedAmount * (Number(formData.sgstRate) / 100);
-                              return (discountedAmount + cgstAmount + sgstAmount).toFixed(2);
+                              return formData.nonChargeable ? '0.00' : (discountedAmount + cgstAmount + sgstAmount).toFixed(2);
                             })()}</div>
                           </div>
                           <div>
@@ -2318,7 +2389,7 @@ const EditBookingForm = () => {
                               const discountedAmount = taxableAmount - discountAmount;
                               const cgstAmount = discountedAmount * (Number(formData.cgstRate) / 100);
                               const sgstAmount = discountedAmount * (Number(formData.sgstRate) / 100);
-                              const totalAmount = discountedAmount + cgstAmount + sgstAmount;
+                              const totalAmount = formData.nonChargeable ? 0 : discountedAmount + cgstAmount + sgstAmount;
                               const totalAdvance = (formData.advancePayments || []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
                               const balance = totalAmount - totalAdvance;
                               return Math.max(0, balance).toFixed(2);

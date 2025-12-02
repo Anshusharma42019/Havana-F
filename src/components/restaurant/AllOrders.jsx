@@ -215,6 +215,9 @@ const AllOrders = () => {
                   Amount
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Non Chargeable
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -278,6 +281,13 @@ const AllOrders = () => {
                         <div>CGST: ₹{order.cgstAmount || 0} ({order.cgstRate || 0}%)</div>
                       </div>
                     )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                      order.nonChargeable ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {order.nonChargeable ? 'True' : 'False'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-semibold rounded ${getStatusColor(order.status)}`}>

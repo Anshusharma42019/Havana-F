@@ -52,7 +52,7 @@ export default function RestaurantInvoice() {
           checkInDate: new Date(order.createdAt || Date.now()).toLocaleDateString(),
           checkOutDate: new Date(order.createdAt || Date.now()).toLocaleDateString()
         },
-        items: order.items?.map((item) => ({
+        items: order.nonChargeable ? [] : (order.items?.map((item) => ({
           date: new Date(order.createdAt || Date.now()).toLocaleDateString(),
           particulars: item.itemName || item.name || 'Unknown Item',
           pax: item.quantity || 1,
@@ -62,16 +62,16 @@ export default function RestaurantInvoice() {
           cgstRate: order.cgstAmount || ((item.price || item.Price || 0) * (order.cgstRate || 2.5)) / 100,
           sgstRate: order.sgstAmount || ((item.price || item.Price || 0) * (order.sgstRate || 2.5)) / 100,
           amount: (item.price || item.Price || 0) * (item.quantity || 1)
-        })) || []
+        })) || [])
       };
       
       // Calculate GST amounts if not present in order
-      const subtotal = order.subtotal || order.amount || 0;
+      const subtotal = order.nonChargeable ? 0 : (order.subtotal || order.amount || 0);
       const sgstRate = order.sgstRate || 2.5;
       const cgstRate = order.cgstRate || 2.5;
-      const sgstAmount = order.sgstAmount || (subtotal * sgstRate) / 100;
-      const cgstAmount = order.cgstAmount || (subtotal * cgstRate) / 100;
-      const totalWithGst = subtotal + sgstAmount + cgstAmount;
+      const sgstAmount = order.nonChargeable ? 0 : (order.sgstAmount || (subtotal * sgstRate) / 100);
+      const cgstAmount = order.nonChargeable ? 0 : (order.cgstAmount || (subtotal * cgstRate) / 100);
+      const totalWithGst = order.nonChargeable ? 0 : (subtotal + sgstAmount + cgstAmount);
       
       invoiceData.taxes = [{
         taxableAmount: subtotal,

@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useOrderManagement } from '../../hooks/useOrderManagement';
+import { useAuth } from '../../context/AuthContext';
 
 const Order = () => {
   const location = useLocation();
+  const { hasRole } = useAuth();
   const [isConnected] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [nonChargeable, setNonChargeable] = useState(false);
   
   const {
     menuItems,
@@ -317,25 +320,58 @@ const Order = () => {
 
             {cartItems.length > 0 && (
               <div className="border-t p-4">
+                {hasRole(['ADMIN', 'GM']) && (
+                  <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={nonChargeable}
+                        onChange={(e) => setNonChargeable(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                      />
+                      <span className="text-orange-600 font-medium text-sm">
+                        Non-Chargeable (GM Authority)
+                      </span>
+                    </label>
+                    {nonChargeable && (
+                      <p className="text-xs text-orange-700 mt-1">
+                        This order will be marked as non-chargeable with ₹0 amount.
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="space-y-2 mb-4">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Subtotal:</span>
-                    <span className="font-medium">₹{getGstAmounts().subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">SGST ({gstRates.sgstRate}%):</span>
-                    <span className="font-medium">₹{getGstAmounts().sgstAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">CGST ({gstRates.cgstRate}%):</span>
-                    <span className="font-medium">₹{getGstAmounts().cgstAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="border-t pt-2">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-lg text-gray-800">Total:</span>
-                      <span className="font-bold text-lg text-gray-800">₹{getGstAmounts().total.toFixed(2)}</span>
+                  {nonChargeable ? (
+                    <div className="text-center py-4">
+                      <div className="text-green-600 font-medium text-lg">
+                        Non-Chargeable Order: ₹0.00
+                      </div>
+                      <div className="text-xs text-green-600 mt-1">
+                        This order has been marked as non-chargeable by authorized personnel.
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Subtotal:</span>
+                        <span className="font-medium">₹{getGstAmounts().subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">SGST ({gstRates.sgstRate}%):</span>
+                        <span className="font-medium">₹{getGstAmounts().sgstAmount.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">CGST ({gstRates.cgstRate}%):</span>
+                        <span className="font-medium">₹{getGstAmounts().cgstAmount.toFixed(2)}</span>
+                      </div>
+                      <div className="border-t pt-2">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-lg text-gray-800">Total:</span>
+                          <span className="font-bold text-lg text-gray-800">₹{getGstAmounts().total.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <button
@@ -346,7 +382,7 @@ const Order = () => {
                   </button>
                   <button
                     className="w-full py-3 px-4 rounded-md text-white bg-gradient-to-r from-[#c3ad6b] to-[#b39b5a] font-semibold hover:from-[#b39b5a] hover:to-[#c3ad6b] transition-all duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={handlePlaceOrder}
+                    onClick={() => handlePlaceOrder(nonChargeable)}
                     disabled={isPlacingOrder}
                   >
                     {isPlacingOrder ? 'Placing Order...' : 'Place Order'}

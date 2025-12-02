@@ -116,7 +116,7 @@ export default function Invoice() {
             checkInDate: formatDate(),
             checkOutDate: formatDate()
           },
-          items: orderData.items?.map((item, index) => {
+          items: orderData.items?.filter(item => !orderData.nonChargeable).map((item, index) => {
             const itemPrice = item.isFree ? 0 : (typeof item === 'object' ? (item.price || item.Price || 0) : 0);
             return {
               date: formatDate(),
@@ -132,16 +132,16 @@ export default function Invoice() {
             };
           }) || [],
           taxes: [{
-            taxableAmount: orderData.amount || orderData.totalAmount || 0,
-            cgst: (orderData.amount || orderData.totalAmount || 0) * (currentGstRates.cgstRate / 100),
-            sgst: (orderData.amount || orderData.totalAmount || 0) * (currentGstRates.sgstRate / 100),
-            amount: orderData.amount || orderData.totalAmount || 0
+            taxableAmount: orderData.nonChargeable ? 0 : (orderData.amount || orderData.totalAmount || 0),
+            cgst: orderData.nonChargeable ? 0 : ((orderData.amount || orderData.totalAmount || 0) * (currentGstRates.cgstRate / 100)),
+            sgst: orderData.nonChargeable ? 0 : ((orderData.amount || orderData.totalAmount || 0) * (currentGstRates.sgstRate / 100)),
+            amount: orderData.nonChargeable ? 0 : (orderData.amount || orderData.totalAmount || 0)
           }],
           payment: {
-            taxableAmount: orderData.amount || orderData.totalAmount || 0,
-            cgst: (orderData.amount || orderData.totalAmount || 0) * (currentGstRates.cgstRate / 100),
-            sgst: (orderData.amount || orderData.totalAmount || 0) * (currentGstRates.sgstRate / 100),
-            total: orderData.amount || orderData.totalAmount || 0
+            taxableAmount: orderData.nonChargeable ? 0 : (orderData.amount || orderData.totalAmount || 0),
+            cgst: orderData.nonChargeable ? 0 : ((orderData.amount || orderData.totalAmount || 0) * (currentGstRates.cgstRate / 100)),
+            sgst: orderData.nonChargeable ? 0 : ((orderData.amount || orderData.totalAmount || 0) * (currentGstRates.sgstRate / 100)),
+            total: orderData.nonChargeable ? 0 : (orderData.amount || orderData.totalAmount || 0)
           },
           otherCharges: [
             {
