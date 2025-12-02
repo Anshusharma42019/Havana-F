@@ -201,7 +201,7 @@ export const useOrderManagement = (location) => {
     return { subtotal, sgstAmount, cgstAmount, total: subtotal + sgstAmount + cgstAmount };
   };
 
-  const handlePlaceOrder = async () => {
+  const handlePlaceOrder = async (nonChargeable = false) => {
     if (isPlacingOrder) return;
     
     if (cartItems.length === 0) {
@@ -253,6 +253,7 @@ export const useOrderManagement = (location) => {
         totalGstAmount: gstAmounts.sgstAmount + gstAmounts.cgstAmount,
         amount: gstAmounts.total,
         discount: 0,
+        nonChargeable: nonChargeable,
         isMembership: false,
         isLoyalty: false
       };

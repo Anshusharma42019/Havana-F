@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, createContext, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { showToast } from '../../utils/toaster';
+import { useAuth } from '../../context/AuthContext';
 import { validateEmail, validatePhone, validateRequired, validatePositiveNumber, validateDateRange, validateGST, validatePAN, validateAadhaar } from '../../utils/validation';
  
 // Apply golden theme
@@ -324,6 +325,7 @@ export const AppProvider = ({ children }) => {
     discountPercent: 0,
     discountRoomSource: 0,
     discountNotes: '',
+    nonChargeable: false,
     paymentMode: '',
     paymentStatus: 'Pending',
     bookingRefNo: '',
@@ -588,6 +590,9 @@ const App = () => {
     formData, setFormData, roomsForSelectedCategory, resetForm, showCompanyDetails, setShowCompanyDetails,
   } = useAppContext();
 
+  // Auth context for role-based access
+  const { hasRole } = useAuth();
+
   // Local state for photos
   const [capturedPhotos, setCapturedPhotos] = useState([]);
 
@@ -715,6 +720,15 @@ const App = () => {
   // Recalculate total when room rates change
   useEffect(() => {
     if (selectedRooms.length > 0 && formData.days > 0) {
+      // If non-chargeable, set rate to 0
+      if (formData.nonChargeable) {
+        setFormData(prev => ({ 
+          ...prev, 
+          rate: 0
+        }));
+        return;
+      }
+      
       const totalRoomRate = selectedRooms.reduce((sum, room) => {
         const rate = room.customPrice !== undefined && room.customPrice !== '' && room.customPrice !== null
           ? Number(room.customPrice) 
@@ -749,6 +763,7 @@ const App = () => {
         rate: finalRate
       }));
     }
+  }, [selectedRooms.map(r => `${r.customPrice}-${r.extraBed}-${r.extraBedStartDate}`).join(','), formData.days, formData.extraBedCharge, formData.checkInDate, formData.checkOutDate, formData.nonChargeable, setFormData]);
   }, [selectedRooms.map(r => `${r.customPrice}-${r.extraBed}-${r.extraBedStartDate}`).join(','), formData.days, formData.extraBedCharge, formData.checkInDate, formData.checkOutDate, formData.discountPercent, setFormData]);
 
   // Recalculate rate when discount changes
@@ -996,6 +1011,7 @@ const App = () => {
           discountPercent: 0,
           discountRoomSource: 0,
           discountNotes: '',
+          nonChargeable: false,
           paymentMode: '',
           paymentStatus: 'Pending',
           bookingRefNo: '',
@@ -1327,8 +1343,8 @@ const App = () => {
       }
     }
     
-    // Discount validation
-    if (formData.discountPercent > 0 && !formData.discountNotes?.trim()) {
+    // Discount validation (skip if non-chargeable)
+    if (!formData.nonChargeable && formData.discountPercent > 0 && !formData.discountNotes?.trim()) {
       showToast.error('Discount notes are required when discount is applied');
       return false;
     }
@@ -2781,9 +2797,29 @@ const App = () => {
                 max="100"
                 value={formData.discountPercent}
                 onChange={handleChange}
+                disabled={formData.nonChargeable}
               />
             </div>
-            {formData.discountPercent > 0 && (
+            {hasRole(['ADMIN', 'GM']) && (
+              <div className="space-y-2 flex items-center gap-2">
+                <Checkbox
+                  id="nonChargeable"
+                  checked={formData.nonChargeable}
+                  onChange={(e) => {
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      nonChargeable: e.target.checked,
+                      discountPercent: e.target.checked ? 0 : prev.discountPercent,
+                      discountNotes: e.target.checked ? '' : prev.discountNotes
+                    }));
+                  }}
+                />
+                <Label htmlFor="nonChargeable" className="text-orange-600 font-medium">
+                  Non-Chargeable (GM Authority)
+                </Label>
+              </div>
+            )}
+            {formData.discountPercent > 0 && !formData.nonChargeable && (
               <div className="space-y-2 col-span-full">
                 <Label htmlFor="discountNotes">
                   Discount Notes <span className="text-red-500">*</span>
@@ -2800,6 +2836,20 @@ const App = () => {
                   required
                 />
                 <p className="text-xs text-red-600">Note: Discount notes are mandatory when discount is applied</p>
+              </div>
+            )}
+            {formData.nonChargeable && (
+              <div className="space-y-2 col-span-full">
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FaInfoCircle className="text-orange-600" />
+                    <span className="font-medium text-orange-800">Non-Chargeable Booking</span>
+                  </div>
+                  <p className="text-sm text-orange-700">
+                    This booking has been marked as non-chargeable by authorized personnel (General Manager). 
+                    All charges including room rates, taxes, and additional services will be set to ₹0.
+                  </p>
+                </div>
               </div>
             )}
             <div className="space-y-2">
@@ -2949,7 +2999,7 @@ const App = () => {
                         const discountedAmount = taxableAmount - discountAmount;
                         const cgstAmount = discountedAmount * (Number(formData.cgstRate) / 100);
                         const sgstAmount = discountedAmount * (Number(formData.sgstRate) / 100);
-                        return (discountedAmount + cgstAmount + sgstAmount).toFixed(2);
+                        return formData.nonChargeable ? '0.00' : (discountedAmount + cgstAmount + sgstAmount).toFixed(2);
                       })()}</div>
                     </div>
                     <div>
@@ -2967,7 +3017,7 @@ const App = () => {
                         const discountedAmount = taxableAmount - discountAmount;
                         const cgstAmount = discountedAmount * (Number(formData.cgstRate) / 100);
                         const sgstAmount = discountedAmount * (Number(formData.sgstRate) / 100);
-                        const totalAmount = discountedAmount + cgstAmount + sgstAmount;
+                        const totalAmount = formData.nonChargeable ? 0 : discountedAmount + cgstAmount + sgstAmount;
                         const totalAdvance = (formData.advancePayments || []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
                         const balance = totalAmount - totalAdvance;
                         return Math.max(0, balance).toFixed(2);
