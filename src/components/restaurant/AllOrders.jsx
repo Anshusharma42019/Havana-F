@@ -47,6 +47,7 @@ const AllOrders = () => {
     if (searchQuery.trim()) {
       filtered = filtered.filter(order =>
         order._id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.bookingId?.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.tableNo?.toString().includes(searchQuery.toLowerCase())
       );
@@ -234,7 +235,7 @@ const AllOrders = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
-                        #{order._id.slice(-6)}
+                        {order.bookingId?.invoiceNumber ? `${order.bookingId.invoiceNumber}` : `#${order._id.slice(-6)}`}
                       </div>
                       <div className="text-sm text-gray-500">
                         {new Date(order.createdAt).toLocaleDateString()} {' '}

@@ -484,7 +484,6 @@ export const AppProvider = ({ children }) => {
     setCapturedPhotos([]);
     setIsCameraOpen(false);
     const initializeReset = async () => {
-      await fetchNewGRCNo();
       await fetchAllData();
     };
     initializeReset();
@@ -763,7 +762,6 @@ const App = () => {
         rate: finalRate
       }));
     }
-  }, [selectedRooms.map(r => `${r.customPrice}-${r.extraBed}-${r.extraBedStartDate}`).join(','), formData.days, formData.extraBedCharge, formData.checkInDate, formData.checkOutDate, formData.nonChargeable, setFormData]);
   }, [selectedRooms.map(r => `${r.customPrice}-${r.extraBed}-${r.extraBedStartDate}`).join(','), formData.days, formData.extraBedCharge, formData.checkInDate, formData.checkOutDate, formData.discountPercent, setFormData]);
 
   // Recalculate rate when discount changes
@@ -915,16 +913,13 @@ const App = () => {
           }
         };
         
-        // Generate new GRC and preview Invoice for new booking
-        let newGrcNo, newInvoiceNumber;
+        // Generate new GRC for new booking (keep existing invoice number)
+        let newGrcNo;
         try {
           const token = localStorage.getItem('token');
           const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
           
-          const [grcResponse, invoiceResponse] = await Promise.all([
-            axios.get(`${BASE_URL}/api/bookings/next-grc`, { headers }),
-            axios.get(`${BASE_URL}/api/invoices/next-invoice-number?format=monthly&preview=true`, { headers })
-          ]);
+          const grcResponse = await axios.get(`${BASE_URL}/api/bookings/next-grc`, { headers });
           
           if (grcResponse.data?.grcNo) {
             newGrcNo = grcResponse.data.grcNo;
@@ -932,15 +927,8 @@ const App = () => {
             showToast.error('Failed to generate new GRC number from server');
             return;
           }
-          
-          if (invoiceResponse.data?.invoiceNumber) {
-            newInvoiceNumber = invoiceResponse.data.invoiceNumber;
-          } else {
-            showToast.error('Failed to preview new invoice number from server');
-            return;
-          }
         } catch (error) {
-          showToast.error(`Failed to fetch new GRC/Invoice from server: ${error.message}`);
+          showToast.error(`Failed to fetch new GRC from server: ${error.message}`);
           return;
         }
         
@@ -948,7 +936,7 @@ const App = () => {
         setFormData({
           // New booking details
           grcNo: newGrcNo,
-          invoiceNumber: newInvoiceNumber,
+          invoiceNumber: formData.invoiceNumber,
           reservationId: '',
           categoryId: '',
           bookingDate: new Date().toISOString().split('T')[0],
@@ -991,7 +979,6 @@ const App = () => {
           noOfAdults: 1,
           noOfChildren: 0,
           rate: 0,
-          invoiceNumber: newInvoiceNumber,
           cgstRate: (() => {
             const savedRates = localStorage.getItem('defaultGstRates');
             return savedRates ? JSON.parse(savedRates).cgstRate || 2.5 : 2.5;
@@ -1413,20 +1400,11 @@ const App = () => {
 
     
     try {
-      // Generate actual invoice number for the booking
       const token = localStorage.getItem('token');
       const headers = {
         'Content-Type': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` })
       };
-      
-      const invoiceResponse = await axios.post(`${BASE_URL}/api/invoices/generate-for-booking`, {
-        format: 'monthly'
-      }, { headers });
-      
-      if (invoiceResponse.data?.invoiceNumber) {
-        cleanFormData.invoiceNumber = invoiceResponse.data.invoiceNumber;
-      }
       
       const response = await axios.post(`${BASE_URL}/api/bookings/book`, cleanFormData, { headers });
 
@@ -2797,28 +2775,9 @@ const App = () => {
                 max="100"
                 value={formData.discountPercent}
                 onChange={handleChange}
-                disabled={formData.nonChargeable}
               />
             </div>
-            {hasRole(['ADMIN', 'GM']) && (
-              <div className="space-y-2 flex items-center gap-2">
-                <Checkbox
-                  id="nonChargeable"
-                  checked={formData.nonChargeable}
-                  onChange={(e) => {
-                    setFormData(prev => ({ 
-                      ...prev, 
-                      nonChargeable: e.target.checked,
-                      discountPercent: e.target.checked ? 0 : prev.discountPercent,
-                      discountNotes: e.target.checked ? '' : prev.discountNotes
-                    }));
-                  }}
-                />
-                <Label htmlFor="nonChargeable" className="text-orange-600 font-medium">
-                  Non-Chargeable (GM Authority)
-                </Label>
-              </div>
-            )}
+
             {formData.discountPercent > 0 && !formData.nonChargeable && (
               <div className="space-y-2 col-span-full">
                 <Label htmlFor="discountNotes">
@@ -2838,20 +2797,7 @@ const App = () => {
                 <p className="text-xs text-red-600">Note: Discount notes are mandatory when discount is applied</p>
               </div>
             )}
-            {formData.nonChargeable && (
-              <div className="space-y-2 col-span-full">
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <FaInfoCircle className="text-orange-600" />
-                    <span className="font-medium text-orange-800">Non-Chargeable Booking</span>
-                  </div>
-                  <p className="text-sm text-orange-700">
-                    This booking has been marked as non-chargeable by authorized personnel (General Manager). 
-                    All charges including room rates, taxes, and additional services will be set to ₹0.
-                  </p>
-                </div>
-              </div>
-            )}
+
             <div className="space-y-2">
               <Label htmlFor="paymentStatus">Payment Status</Label>
               <Select
@@ -2999,7 +2945,7 @@ const App = () => {
                         const discountedAmount = taxableAmount - discountAmount;
                         const cgstAmount = discountedAmount * (Number(formData.cgstRate) / 100);
                         const sgstAmount = discountedAmount * (Number(formData.sgstRate) / 100);
-                        return formData.nonChargeable ? '0.00' : (discountedAmount + cgstAmount + sgstAmount).toFixed(2);
+                        return (discountedAmount + cgstAmount + sgstAmount).toFixed(2);
                       })()}</div>
                     </div>
                     <div>
@@ -3017,7 +2963,7 @@ const App = () => {
                         const discountedAmount = taxableAmount - discountAmount;
                         const cgstAmount = discountedAmount * (Number(formData.cgstRate) / 100);
                         const sgstAmount = discountedAmount * (Number(formData.sgstRate) / 100);
-                        const totalAmount = formData.nonChargeable ? 0 : discountedAmount + cgstAmount + sgstAmount;
+                        const totalAmount = discountedAmount + cgstAmount + sgstAmount;
                         const totalAdvance = (formData.advancePayments || []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
                         const balance = totalAmount - totalAdvance;
                         return Math.max(0, balance).toFixed(2);

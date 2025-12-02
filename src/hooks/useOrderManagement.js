@@ -32,6 +32,36 @@ export const useOrderManagement = (location) => {
   });
 
   useEffect(() => {
+    // If coming from booking edit form with preSelectedBooking
+    if (location.state?.preSelectedBooking) {
+      const booking = location.state.preSelectedBooking;
+      const roomNumbers = booking.roomNumber ? booking.roomNumber.split(',').map(num => num.trim()) : [];
+      const firstRoom = roomNumbers[0];
+      
+      if (firstRoom) {
+        setOrderData(prev => ({
+          ...prev,
+          tableNo: firstRoom,
+          customerName: booking.name || prev.customerName
+        }));
+        
+        setTables(prev => {
+          const existingRoom = prev.find(room => room.tableNumber === firstRoom);
+          if (!existingRoom) {
+            return [...prev, {
+              _id: booking._id,
+              tableNumber: firstRoom,
+              status: 'occupied',
+              guestName: booking.name || 'Guest',
+              bookingNo: booking.bookingNo,
+              bookingId: booking._id
+            }];
+          }
+          return prev;
+        });
+      }
+    }
+    
     // If coming from dine-in, immediately set the room data
     if (location.state?.tableNumber) {
       setOrderData(prev => ({

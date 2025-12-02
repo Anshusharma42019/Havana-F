@@ -703,7 +703,6 @@ const EditBookingForm = () => {
         rate: finalRate
       }));
     }
-  }, [selectedRooms.map(r => `${r.customPrice}-${r.extraBed}-${r.extraBedStartDate}`).join(','), formData.days, formData.extraBedCharge, formData.checkInDate, formData.checkOutDate, formData.nonChargeable]);
   }, [selectedRooms.map(r => `${r.customPrice}-${r.extraBed}-${r.extraBedStartDate}`).join(','), formData.days, formData.extraBedCharge, formData.checkInDate, formData.checkOutDate, formData.discountPercent]);
 
   // Recalculate rate when discount changes
@@ -2026,7 +2025,7 @@ const EditBookingForm = () => {
                   }}
                 />
                 
-                <div className="flex justify-center">
+                <div className="flex justify-center gap-4">
                   <Button
                     type="button"
                     onClick={() => {
@@ -2042,6 +2041,23 @@ const EditBookingForm = () => {
                     style={{backgroundColor: 'hsl(45, 43%, 58%)'}}
                   >
                     + Create New Room Service Order
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setIsNavigating(true);
+                      navigate('/restaurant/create-order', {
+                        state: { 
+                          preSelectedBooking: editBooking,
+                          isDineIn: true,
+                          returnTo: '/booking'
+                        }
+                      });
+                    }}
+                    className="px-6 py-3 rounded-lg font-medium text-white transition-colors"
+                    style={{backgroundColor: 'hsl(45, 43%, 58%)'}}
+                  >
+                    + Create New Restaurant Order
                   </Button>
                 </div>
               </section>
@@ -2265,25 +2281,7 @@ const EditBookingForm = () => {
                       disabled={formData.nonChargeable}
                     />
                   </div>
-                  {hasRole(['ADMIN', 'GM']) && (
-                    <div className="space-y-2 flex items-center gap-2">
-                      <Checkbox
-                        id="nonChargeable"
-                        checked={formData.nonChargeable}
-                        onChange={(e) => {
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            nonChargeable: e.target.checked,
-                            discountPercent: e.target.checked ? 0 : prev.discountPercent,
-                            discountNotes: e.target.checked ? '' : prev.discountNotes
-                          }));
-                        }}
-                      />
-                      <Label htmlFor="nonChargeable" className="text-orange-600 font-medium">
-                        Non-Chargeable (GM Authority)
-                      </Label>
-                    </div>
-                  )}
+
                   {formData.discountPercent > 0 && !formData.nonChargeable && (
                     <div className="space-y-2 col-span-full">
                       <Label htmlFor="discountNotes">
@@ -2303,20 +2301,7 @@ const EditBookingForm = () => {
                       <p className="text-xs text-red-600">Note: Discount notes are mandatory when discount is applied</p>
                     </div>
                   )}
-                  {formData.nonChargeable && (
-                    <div className="space-y-2 col-span-full">
-                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FaInfoCircle className="text-orange-600" />
-                          <span className="font-medium text-orange-800">Non-Chargeable Booking</span>
-                        </div>
-                        <p className="text-sm text-orange-700">
-                          This booking has been marked as non-chargeable by authorized personnel (General Manager). 
-                          All charges including room rates, taxes, and additional services will be set to ₹0.
-                        </p>
-                      </div>
-                    </div>
-                  )}
+
 
                   {/* Multiple Advance Payments Section */}
                   <div className="space-y-4 col-span-full">

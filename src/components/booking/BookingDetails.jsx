@@ -260,7 +260,13 @@ const BookingDetails = () => {
                           <p className="font-medium text-gray-800">Order #{order.orderNumber || order._id.slice(-6)}</p>
                           <p className="text-sm text-gray-600">{new Date(order.createdAt).toLocaleDateString()}</p>
                         </div>
-                        <span className="text-lg font-semibold text-blue-600">₹{order.totalAmount || 0}</span>
+                        <span className="text-lg font-semibold text-blue-600">
+                          {order.nonChargeable ? (
+                            <span className="text-green-600 font-bold">NC</span>
+                          ) : (
+                            `₹${order.totalAmount || 0}`
+                          )}
+                        </span>
                       </div>
                       <div className="space-y-2">
                         {order.items?.map((item, idx) => (
@@ -288,7 +294,13 @@ const BookingDetails = () => {
                           <p className="font-medium text-gray-800">Order #{order.orderNumber || order._id.slice(-6)}</p>
                           <p className="text-sm text-gray-600">{new Date(order.createdAt).toLocaleDateString()}</p>
                         </div>
-                        <span className="text-lg font-semibold text-blue-600">₹{order.amount || 0}</span>
+                        <span className="text-lg font-semibold text-blue-600">
+                          {order.nonChargeable ? (
+                            <span className="text-green-600 font-bold">NC</span>
+                          ) : (
+                            `₹${order.amount || 0}`
+                          )}
+                        </span>
                       </div>
                       <div className="space-y-2">
                         {order.items?.map((item, idx) => (
@@ -634,8 +646,8 @@ const BookingDetails = () => {
                   </>
                 )}
                 <div className="border-t pt-3">
-                  <div className="flex justify-between text-xl font-bold text-blue-600">
-                    <span>Grand Total:</span>
+                  <div className="flex justify-between text-xl font-bold text-orange-600">
+                    <span>Balance Due:</span>
                     <span>₹{(() => {
                       // Calculate base room rate (without extra bed)
                       const baseRoomRate = (() => {
@@ -674,10 +686,9 @@ const BookingDetails = () => {
                       const cgstAmount = subtotal * (booking.cgstRate || 0.025);
                       const sgstAmount = subtotal * (booking.sgstRate || 0.025);
                       
-                      // Grand total = subtotal + taxes (₹5170 + ₹129.25 + ₹129.25 = ₹5428.50)
                       const grandTotal = subtotal + cgstAmount + sgstAmount;
-                      
-                      return Math.round(grandTotal * 100) / 100; // Round to 2 decimal places
+                      const totalAdvance = booking.advancePayments?.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0) || 0;
+                      return Math.max(0, Math.round((grandTotal - totalAdvance) * 100) / 100);
                     })()}</span>
                   </div>
                 </div>

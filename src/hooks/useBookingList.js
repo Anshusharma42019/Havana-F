@@ -42,7 +42,12 @@ export const useBookingList = () => {
 
       const mappedBookings = bookingsArray.map((b) => {
         const room = roomsData.find(r => r.room_number == b.roomNumber || r.roomNumber == b.roomNumber);
-        const category = room ? categoriesData.find(c => c._id == room.categoryId || c.id == room.categoryId) : null;
+        const category = room ? categoriesData.find(c => 
+          c._id == room.categoryId || 
+          c.id == room.categoryId || 
+          c._id == room.category?._id || 
+          c.id == room.category?._id
+        ) : null;
         
         let extraBedRooms = [];
         if (b.extraBedRooms && Array.isArray(b.extraBedRooms)) {

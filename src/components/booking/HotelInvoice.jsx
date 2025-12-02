@@ -830,20 +830,13 @@ export default function Invoice() {
                     </tr>
                     <tr className="bg-yellow-100">
                       <td className="p-0.5 font-bold text-right text-xs">GRAND TOTAL:</td>
-                      <td className="p-0.5 border-l border-black text-right font-bold text-xs">₹{calculateNetTotal()}</td>
+                      <td className="p-0.5 border-l border-black text-right font-bold text-xs">₹{(() => {
+                        const netTotal = parseFloat(calculateNetTotal());
+                        const totalAdvance = bookingData?.advancePayments?.reduce((sum, payment) => sum + (payment.amount || 0), 0) || 0;
+                        return (netTotal - totalAdvance).toFixed(2);
+                      })()}</td>
                     </tr>
-                    {bookingData?.advancePayments && bookingData.advancePayments.length > 0 && (
-                      <>
-                        <tr>
-                          <td className="p-0.5 text-right text-xs font-medium">Total Advance Received:</td>
-                          <td className="p-0.5 border-l border-black text-right text-xs font-bold">₹{bookingData.advancePayments.reduce((sum, payment) => sum + (payment.amount || 0), 0).toFixed(2)}</td>
-                        </tr>
-                        <tr>
-                          <td className="p-0.5 font-bold text-right text-xs">BALANCE DUE:</td>
-                          <td className="p-0.5 border-l border-black text-right font-bold text-xs">₹{(parseFloat(calculateNetTotal()) - bookingData.advancePayments.reduce((sum, payment) => sum + (payment.amount || 0), 0)).toFixed(2)}</td>
-                        </tr>
-                      </>
-                    )}
+
                   </tbody>
                 </table>
               </div>
@@ -858,15 +851,9 @@ export default function Invoice() {
                     </tr>
                   </thead>
                   <tbody>
-                    {invoiceData.otherCharges?.map((charge, index) => (
-                      <tr key={index}>
-                        <td className="p-0.5 border border-black text-xs">{typeof charge === 'object' ? charge.particulars : String(charge)}</td>
-                        <td className="p-0.5 border border-black text-right text-xs">₹{typeof charge === 'object' ? (charge.amount?.toFixed(2) || '0.00') : '0.00'}</td>
-                      </tr>
-                    ))}
                     <tr className="bg-gray-200">
                       <td className="p-0.5 border border-black font-bold text-right text-xs">Total:</td>
-                      <td className="p-0.5 border border-black text-right font-bold text-xs">₹{calculateOtherChargesTotal()}</td>
+                      <td className="p-0.5 border border-black text-right font-bold text-xs">₹0.00</td>
                     </tr>
                   </tbody>
                 </table>
