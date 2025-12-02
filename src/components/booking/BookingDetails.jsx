@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Phone, Mail, MapPin, Calendar, CreditCard, Bed, Users, UtensilsCrossed, Bell, Edit2, Save, X } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, MapPin, Calendar, CreditCard, Bed, Users, Edit2, Save, X, Plus, Trash2 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import axios from 'axios';
+import RoomServiceOrders from './RoomServiceOrders';
+import RestaurantOrders from './RestaurantOrders';
 
 const BookingDetails = () => {
   const { bookingId } = useParams(); // This will now be bookingNo
@@ -15,6 +17,14 @@ const BookingDetails = () => {
   const [restaurantCharges, setRestaurantCharges] = useState([]);
   const [editingOrder, setEditingOrder] = useState(null);
   const [editItems, setEditItems] = useState([]);
+  const [showAddPayment, setShowAddPayment] = useState(false);
+  const [newPayment, setNewPayment] = useState({
+    amount: '',
+    paymentMode: '',
+    paymentDate: new Date().toISOString().split('T')[0],
+    reference: '',
+    notes: ''
+  });
 
   useEffect(() => {
     fetchBookingDetails();
@@ -35,7 +45,7 @@ const BookingDetails = () => {
       
       // Fetch service charges
       if (response.data.booking._id) {
-        await fetchServiceCharges(response.data.booking._id, token);
+        await fetchServiceCharges(response.data.booking._id, token, response.data.booking);
       }
     } catch (err) {
       setError(`Failed to fetch booking details: ${err.response?.data?.error || err.message}`);
@@ -44,19 +54,23 @@ const BookingDetails = () => {
     }
   };
 
-  const fetchServiceCharges = async (bookingId, token) => {
+  const fetchServiceCharges = async (bookingId, token, bookingData = booking) => {
     try {
       console.log('Fetching charges for booking ID:', bookingId);
       
-      // Fetch room service orders
+      // Fetch room service orders by booking ID
       const serviceResponse = await axios.get(`${BASE_URL}/api/room-service/all`, {
         headers: { 'Authorization': `Bearer ${token}` },
         params: { bookingId }
       });
       
-      // Fetch all restaurant orders
+      // Fetch restaurant orders by booking ID and booking number
       const restaurantResponse = await axios.get(`${BASE_URL}/api/restaurant-orders/all`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        params: { 
+          bookingId: bookingId,
+          bookingNumber: bookingData?.grcNo
+        }
       });
       
       console.log('Room service response:', serviceResponse.data);
@@ -65,21 +79,20 @@ const BookingDetails = () => {
       // Filter restaurant orders
       const allRestaurantOrders = restaurantResponse.data || [];
       console.log('All restaurant orders:', allRestaurantOrders);
-      console.log('Current booking room number:', booking?.roomNumber);
+      console.log('Current booking room number:', bookingData?.roomNumber);
       console.log('Current booking ID:', bookingId);
       
       const filteredRestaurantOrders = allRestaurantOrders.filter(order => {
-        console.log('Checking order:', order._id, 'bookingId:', order.bookingId, 'tableNo:', order.tableNo, 'status:', order.status);
+        console.log('Checking order:', order._id, 'bookingId:', order.bookingId, 'bookingNumber:', order.bookingNumber, 'tableNo:', order.tableNo, 'status:', order.status);
         
-        // Check if order belongs to this booking
+        // Match only by booking ID or booking number
         const matchesBookingId = (order.bookingId && order.bookingId._id === bookingId) || order.bookingId === bookingId;
-        const matchesRoomNumber = booking && order.tableNo == booking.roomNumber;
-        const matchesAnyRoom = booking && booking.roomNumber && booking.roomNumber.split(',').some(room => room.trim() == order.tableNo);
+        const matchesBookingNumber = order.bookingNumber === bookingData?.grcNo;
         
-        const isForThisBooking = matchesBookingId || matchesRoomNumber || matchesAnyRoom;
+        const isForThisBooking = matchesBookingId || matchesBookingNumber;
         const isNotCancelled = order.status !== 'cancelled' && order.status !== 'canceled';
         
-        console.log('Match result:', { matchesBookingId, matchesRoomNumber, matchesAnyRoom, isForThisBooking, isNotCancelled });
+        console.log('Match result:', { matchesBookingId, matchesBookingNumber, isForThisBooking, isNotCancelled });
         
         return isForThisBooking && isNotCancelled;
       });
@@ -113,17 +126,23 @@ const BookingDetails = () => {
       }, 0);
       const totalAmount = subtotal; // Add tax calculation if needed
       
-      const endpoint = editingOrder.type === 'service' 
-        ? `${BASE_URL}/api/room-service/orders/${editingOrder._id}`
-        : `${BASE_URL}/api/restaurant-orders/${editingOrder._id}`;
-      
-      await axios.put(endpoint, {
-        items: editItems,
-        subtotal,
-        totalAmount
-      }, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      if (editingOrder.type === 'service') {
+        await axios.put(`${BASE_URL}/api/room-service/orders/${editingOrder._id}`, {
+          items: editItems,
+          subtotal,
+          totalAmount
+        }, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      } else {
+        await axios.patch(`${BASE_URL}/api/restaurant-orders/${editingOrder._id}`, {
+          items: editItems,
+          amount: totalAmount
+        }, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
+
       
       // Refresh charges
       await fetchServiceCharges(booking._id, token);
@@ -140,6 +159,53 @@ const BookingDetails = () => {
     setEditItems([]);
   };
 
+  const handleAddPayment = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(`${BASE_URL}/api/bookings/update/${booking._id}`, {
+        advancePayments: [...(booking.advancePayments || []), {
+          ...newPayment,
+          amount: Number(newPayment.amount)
+        }]
+      }, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      // Update local booking state
+      setBooking(prev => ({
+        ...prev,
+        advancePayments: [...(prev.advancePayments || []), {
+          ...newPayment,
+          amount: Number(newPayment.amount)
+        }]
+      }));
+      
+      // Reset form
+      setNewPayment({
+        amount: '',
+        paymentMode: '',
+        paymentDate: new Date().toISOString().split('T')[0],
+        reference: '',
+        notes: ''
+      });
+      setShowAddPayment(false);
+    } catch (err) {
+      console.error('Failed to add payment:', err);
+      alert('Failed to add payment');
+    }
+  };
+
+  const handleCancelAddPayment = () => {
+    setNewPayment({
+      amount: '',
+      paymentMode: '',
+      paymentDate: new Date().toISOString().split('T')[0],
+      reference: '',
+      notes: ''
+    });
+    setShowAddPayment(false);
+  };
+
   const updateItemQuantity = (index, quantity) => {
     const newItems = [...editItems];
     newItems[index].quantity = Math.max(0, quantity);
@@ -152,6 +218,38 @@ const BookingDetails = () => {
     newItems[index].totalPrice = calculatedTotal;
     newItems[index].total = calculatedTotal;
     
+    setEditItems(newItems);
+  };
+
+  const handleRemoveOrder = async (orderId, type) => {
+    if (!confirm('Are you sure you want to remove this order?')) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (type === 'service') {
+        await axios.delete(`${BASE_URL}/api/room-service/orders/${orderId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      } else {
+        // For restaurant orders, update status to cancelled
+        await axios.patch(`${BASE_URL}/api/restaurant-orders/${orderId}/status`, {
+          status: 'cancelled'
+        }, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
+      
+      // Refresh charges
+      await fetchServiceCharges(booking._id, token);
+    } catch (err) {
+      console.error('Failed to remove order:', err);
+      alert('Failed to remove order');
+    }
+  };
+
+  const handleRemoveItem = (itemIndex) => {
+    const newItems = editItems.filter((_, index) => index !== itemIndex);
     setEditItems(newItems);
   };
 
@@ -288,172 +386,29 @@ const BookingDetails = () => {
               </div>
             )}
 
-            {/* Room Service Charges */}
-            {serviceCharges.length > 0 && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                  <Bell className="mr-2 text-blue-600" size={20} />
-                  Room Service Orders
-                </h2>
-                <div className="space-y-4">
-                  {serviceCharges.map((order, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <p className="font-medium text-gray-800">Order #{order.orderNumber}</p>
-                          <p className="text-sm text-gray-600">{order.serviceType}</p>
-                          <p className="text-sm text-gray-600">{new Date(order.createdAt).toLocaleDateString()}</p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="font-medium text-lg">₹{order.totalAmount}</span>
-                          <button
-                            onClick={() => handleEditOrder(order, 'service')}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {editingOrder && editingOrder._id === order._id ? (
-                        <div className="space-y-3">
-                          {editItems.map((item, itemIndex) => (
-                            <div key={itemIndex} className="flex items-center justify-between bg-gray-50 p-3 rounded">
-                              <div className="flex-1">
-                                <p className="font-medium">{item.itemName}</p>
-                                <p className="text-sm text-gray-600">₹{item.unitPrice} each</p>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <button
-                                  onClick={() => updateItemQuantity(itemIndex, item.quantity - 1)}
-                                  className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-200"
-                                >
-                                  -
-                                </button>
-                                <span className="w-8 text-center">{item.quantity}</span>
-                                <button
-                                  onClick={() => updateItemQuantity(itemIndex, item.quantity + 1)}
-                                  className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-200"
-                                >
-                                  +
-                                </button>
-                              </div>
-                              <div className="ml-4 font-semibold">₹{item.totalPrice}</div>
-                            </div>
-                          ))}
-                          <div className="flex justify-end space-x-2 mt-4">
-                            <button
-                              onClick={handleCancelEdit}
-                              className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
-                            >
-                              <X size={16} className="inline mr-1" /> Cancel
-                            </button>
-                            <button
-                              onClick={handleSaveOrder}
-                              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                            >
-                              <Save size={16} className="inline mr-1" /> Save
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {order.items.map((item, itemIndex) => (
-                            <div key={itemIndex} className="flex justify-between text-sm">
-                              <span>{item.itemName} x {item.quantity}</span>
-                              <span>₹{item.totalPrice}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Room Service Orders */}
+            <RoomServiceOrders
+              serviceCharges={serviceCharges}
+              editingOrder={editingOrder}
+              editItems={editItems}
+              onEditOrder={handleEditOrder}
+              onSaveOrder={handleSaveOrder}
+              onCancelEdit={handleCancelEdit}
+              onUpdateItemQuantity={updateItemQuantity}
+            />
 
-            {/* Restaurant Charges */}
-            {restaurantCharges.length > 0 && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                  <UtensilsCrossed className="mr-2 text-blue-600" size={20} />
-                  Restaurant Orders
-                </h2>
-                <div className="space-y-4">
-                  {restaurantCharges.map((order, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <p className="font-medium text-gray-800">Table {order.tableNo}</p>
-                          <p className="text-sm text-gray-600">{new Date(order.createdAt).toLocaleDateString()}</p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="font-medium text-lg">₹{order.amount}</span>
-                          <button
-                            onClick={() => handleEditOrder(order, 'restaurant')}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {editingOrder && editingOrder._id === order._id ? (
-                        <div className="space-y-3">
-                          {editItems.map((item, itemIndex) => (
-                            <div key={itemIndex} className="flex items-center justify-between bg-gray-50 p-3 rounded">
-                              <div className="flex-1">
-                                <p className="font-medium">{item.name || item.itemName || 'Unknown Item'}</p>
-                                <p className="text-sm text-gray-600">₹{item.price || item.unitPrice || 0} each</p>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <button
-                                  onClick={() => updateItemQuantity(itemIndex, item.quantity - 1)}
-                                  className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-200"
-                                >
-                                  -
-                                </button>
-                                <span className="w-8 text-center">{item.quantity}</span>
-                                <button
-                                  onClick={() => updateItemQuantity(itemIndex, item.quantity + 1)}
-                                  className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-200"
-                                >
-                                  +
-                                </button>
-                              </div>
-                              <div className="ml-4 font-semibold">₹{item.total || item.totalPrice || (item.quantity * (item.price || item.unitPrice || 0))}</div>
-                            </div>
-                          ))}
-                          <div className="flex justify-end space-x-2 mt-4">
-                            <button
-                              onClick={handleCancelEdit}
-                              className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
-                            >
-                              <X size={16} className="inline mr-1" /> Cancel
-                            </button>
-                            <button
-                              onClick={handleSaveOrder}
-                              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                            >
-                              <Save size={16} className="inline mr-1" /> Save
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {order.items.map((item, itemIndex) => (
-                            <div key={itemIndex} className="flex justify-between text-sm">
-                              <span>{item.name || item.itemName || 'Unknown Item'} x {item.quantity}</span>
-                              <span>₹{item.total || item.totalPrice || (item.price * item.quantity) || 0}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Restaurant Orders */}
+            <RestaurantOrders
+              restaurantCharges={restaurantCharges}
+              editingOrder={editingOrder}
+              editItems={editItems}
+              onEditOrder={handleEditOrder}
+              onSaveOrder={handleSaveOrder}
+              onCancelEdit={handleCancelEdit}
+              onUpdateItemQuantity={updateItemQuantity}
+              onRemoveOrder={handleRemoveOrder}
+              onRemoveItem={handleRemoveItem}
+            />
 
             {/* Amendment History */}
             {booking.amendmentHistory && booking.amendmentHistory.length > 0 && (
@@ -585,6 +540,169 @@ const BookingDetails = () => {
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Advance Payments */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-800 flex items-center">
+                  <CreditCard className="mr-2 text-blue-600" size={20} />
+                  Advance Payments
+                </h2>
+                <button
+                  onClick={() => setShowAddPayment(true)}
+                  className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                >
+                  <Plus size={16} className="mr-1" />
+                  Add Payment
+                </button>
+              </div>
+              {booking.advancePayments && booking.advancePayments.length > 0 ? (
+                <div className="space-y-3">
+                  {booking.advancePayments.map((payment, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium text-gray-800">Payment #{index + 1}</p>
+                          <p className="text-sm text-gray-600">{payment.paymentMode}</p>
+                          <p className="text-sm text-gray-600">{new Date(payment.paymentDate).toLocaleDateString()}</p>
+                          {payment.reference && (
+                            <p className="text-xs text-gray-500">Ref: {payment.reference}</p>
+                          )}
+                          {payment.notes && (
+                            <p className="text-xs text-gray-500">{payment.notes}</p>
+                          )}
+                        </div>
+                        <span className="font-medium text-lg text-green-600">₹{payment.amount}</span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="border-t pt-3">
+                    <div className="flex justify-between text-lg font-semibold">
+                      <span>Total Advance Received:</span>
+                      <span className="text-green-600">₹{booking.advancePayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0)}</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-semibold mt-2">
+                      <span>Balance Due:</span>
+                      <span className="text-orange-600">₹{(() => {
+                        const baseRoomRate = (() => {
+                          const totalRate = booking.taxableAmount || 0;
+                          const extraBedCost = booking.extraBed && booking.extraBedRooms && booking.extraBedRooms.length > 0 
+                            ? booking.roomRates?.reduce((sum, room) => {
+                                if (!room.extraBed) return sum;
+                                const startDate = new Date(room.extraBedStartDate || booking.checkInDate);
+                                const endDate = new Date(booking.checkOutDate);
+                                if (startDate >= endDate) return sum;
+                                const timeDiff = endDate.getTime() - startDate.getTime();
+                                const days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                                return sum + ((booking.extraBedCharge || 0) * Math.max(0, days));
+                              }, 0) || 0 : 0;
+                          return totalRate - extraBedCost;
+                        })();
+                        const extraBedCost = booking.extraBed && booking.extraBedRooms && booking.extraBedRooms.length > 0 
+                          ? booking.roomRates?.reduce((sum, room) => {
+                              if (!room.extraBed) return sum;
+                              const startDate = new Date(room.extraBedStartDate || booking.checkInDate);
+                              const endDate = new Date(booking.checkOutDate);
+                              if (startDate >= endDate) return sum;
+                              const timeDiff = endDate.getTime() - startDate.getTime();
+                              const days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                              return sum + ((booking.extraBedCharge || 0) * Math.max(0, days));
+                            }, 0) || 0 : 0;
+                        const serviceTotal = serviceCharges.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+                        const restaurantTotal = restaurantCharges.reduce((sum, order) => sum + (order.amount || 0), 0);
+                        const subtotal = baseRoomRate + extraBedCost + serviceTotal + restaurantTotal;
+                        const cgstAmount = subtotal * (booking.cgstRate || 0.025);
+                        const sgstAmount = subtotal * (booking.sgstRate || 0.025);
+                        const grandTotal = subtotal + cgstAmount + sgstAmount;
+                        const totalAdvance = booking.advancePayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+                        return Math.max(0, Math.round((grandTotal - totalAdvance) * 100) / 100);
+                      })()}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-4">No advance payments recorded</p>
+              )}
+              
+              {/* Add Payment Form */}
+              {showAddPayment && (
+                <div className="mt-4 border-t pt-4">
+                  <h3 className="text-lg font-medium text-gray-800 mb-3">Add New Payment</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Amount (₹)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={newPayment.amount}
+                        onChange={(e) => setNewPayment(prev => ({ ...prev, amount: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter amount"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Payment Mode</label>
+                      <select
+                        value={newPayment.paymentMode}
+                        onChange={(e) => setNewPayment(prev => ({ ...prev, paymentMode: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select Mode</option>
+                        <option value="Cash">Cash</option>
+                        <option value="Card">Card</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Online">Online</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Payment Date</label>
+                      <input
+                        type="date"
+                        value={newPayment.paymentDate}
+                        onChange={(e) => setNewPayment(prev => ({ ...prev, paymentDate: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Reference/Transaction ID</label>
+                      <input
+                        type="text"
+                        value={newPayment.reference}
+                        onChange={(e) => setNewPayment(prev => ({ ...prev, reference: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Transaction ID, Cheque No, etc."
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Notes</label>
+                      <input
+                        type="text"
+                        value={newPayment.notes}
+                        onChange={(e) => setNewPayment(prev => ({ ...prev, notes: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Additional notes"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end space-x-2 mt-4">
+                    <button
+                      onClick={handleCancelAddPayment}
+                      className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+                    >
+                      <X size={16} className="inline mr-1" /> Cancel
+                    </button>
+                    <button
+                      onClick={handleAddPayment}
+                      disabled={!newPayment.amount || !newPayment.paymentMode}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Save size={16} className="inline mr-1" /> Add Payment
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-white rounded-lg shadow p-6">

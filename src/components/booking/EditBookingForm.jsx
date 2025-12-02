@@ -172,8 +172,8 @@ const EditBookingForm = () => {
   const [showCompanyDetails, setShowCompanyDetails] = useState(false);
   const [roomServiceOrders, setRoomServiceOrders] = useState([]);
   const [restaurantOrders, setRestaurantOrders] = useState([]);
-  const [navigationTimeoutId, setNavigationTimeoutId] = useState(null);
-  const isMountedRef = useRef(true);
+  const [isNavigating, setIsNavigating] = useState(false);
+
 
   const [formData, setFormData] = useState({
     grcNo: '',
@@ -366,7 +366,7 @@ const EditBookingForm = () => {
 
   const handleCheckAvailability = async () => {
     if (!formData.checkInDate || !formData.checkOutDate) {
-      showToast('Please select both check-in and check-out dates.', 'error');
+      showToast.error('Please select both check-in and check-out dates.');
       return;
     }
     setLoading(true);
@@ -407,14 +407,14 @@ const EditBookingForm = () => {
       setAllRooms(trulyAvailableRooms);
 
       if (trulyAvailableRooms.length === 0) {
-        showToast('No rooms available for the selected dates.', 'error');
+        showToast.error('No rooms available for the selected dates.');
       } else {
-        showToast(`Found ${trulyAvailableRooms.length} available rooms.`, 'success');
+        showToast.success(`Found ${trulyAvailableRooms.length} available rooms.`);
       }
 
     } catch (error) {
       console.error('Availability check error:', error);
-      showToast(`Failed to check availability: ${error.message}`, 'error');
+      showToast.error(`Failed to check availability: ${error.message}`);
       setAllRooms([]);
       const resetCategories = allCategories.map(cat => ({ ...cat, availableRoomsCount: 0 }));
       setAllCategories(resetCategories);
@@ -508,44 +508,51 @@ const EditBookingForm = () => {
     if (editBooking) {
       fetchRoomServiceOrders();
     }
-  }, []);
+  }, [editBooking]);
 
-  // Cleanup navigation timeout on unmount
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-      if (navigationTimeoutId) {
-        clearTimeout(navigationTimeoutId);
-      }
-    };
-  }, [navigationTimeoutId]);
+
 
   const fetchRoomServiceOrders = async () => {
-    if (!editBooking?.roomNumber) return;
+    if (!editBooking?._id) return;
     
     try {
       const token = localStorage.getItem('token');
-      const roomNumbers = editBooking.roomNumber.split(',').map(num => num.trim());
       
-      // Fetch room service orders
+      // Fetch room service orders by booking ID
       const roomServiceResponse = await axios.get('/api/room-service/all', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        params: { bookingId: editBooking._id }
+      });
+      
+      // Fetch restaurant orders by booking ID and booking number
+      const restaurantResponse = await axios.get('/api/restaurant-orders/all', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        params: { 
+          bookingId: editBooking._id,
+          bookingNumber: editBooking.grcNo
+        }
       });
       
       const roomServiceData = roomServiceResponse.data.orders || [];
-      const filteredRoomService = roomServiceData.filter(order => 
-        roomNumbers.includes(order.roomNumber?.toString())
-      );
-      
-      // Fetch restaurant orders
-      const restaurantResponse = await axios.get('/api/restaurant-orders/all', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
       const restaurantData = restaurantResponse.data || [];
-      const filteredRestaurant = restaurantData.filter(order => 
-        roomNumbers.includes(order.tableNo?.toString())
+      
+      // Filter room service orders to exclude cancelled ones
+      const filteredRoomService = roomServiceData.filter(order => 
+        order.status !== 'cancelled' && order.status !== 'canceled'
       );
+      
+      // Filter restaurant orders by booking ID, booking number, or room number
+      const roomNumbers = editBooking.roomNumber ? editBooking.roomNumber.split(',').map(num => num.trim()) : [];
+      const filteredRestaurant = restaurantData.filter(order => {
+        // Match only by booking ID or booking number
+        const matchesBookingId = (order.bookingId && order.bookingId._id === editBooking._id) || order.bookingId === editBooking._id;
+        const matchesBookingNumber = order.bookingNumber === editBooking.grcNo;
+        
+        const isForThisBooking = matchesBookingId || matchesBookingNumber;
+        const isNotCancelled = order.status !== 'cancelled' && order.status !== 'canceled';
+        
+        return isForThisBooking && isNotCancelled;
+      });
       
       setRoomServiceOrders(filteredRoomService);
       setRestaurantOrders(filteredRestaurant);
@@ -713,10 +720,10 @@ const EditBookingForm = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData(prev => ({ ...prev, [name]: reader.result }));
-        showToast(`${name === 'idProofImageUrl' ? 'ID Proof Image 1' : 'ID Proof Image 2'} uploaded successfully`, 'success');
+        showToast.success(`${name === 'idProofImageUrl' ? 'ID Proof Image 1' : 'ID Proof Image 2'} uploaded successfully`);
       };
       reader.onerror = () => {
-        showToast('Failed to upload image', 'error');
+        showToast.error('Failed to upload image');
       };
       reader.readAsDataURL(file);
     }
@@ -724,19 +731,19 @@ const EditBookingForm = () => {
 
   const handleAmendStay = async () => {
     if (!amendmentData.newCheckOutDate) {
-      showToast('Please select new check-out date', 'error');
+      showToast.error('Please select new check-out date');
       return;
     }
 
     if (new Date(formData.checkInDate) >= new Date(amendmentData.newCheckOutDate)) {
-      showToast('Check-out date must be after original check-in date', 'error');
+      showToast.error('Check-out date must be after original check-in date');
       return;
     }
 
     // Check amendment limits
     const amendmentCount = editBooking?.amendmentHistory?.length || 0;
     if (amendmentCount >= 3) {
-      showToast('Maximum 3 amendments allowed per booking', 'error');
+      showToast.error('Maximum 3 amendments allowed per booking');
       return;
     }
 
@@ -746,13 +753,13 @@ const EditBookingForm = () => {
     const timeDiffHours = (originalCheckOut - currentTime) / (1000 * 60 * 60);
     
     if (timeDiffHours < 24) {
-      showToast('Cannot amend booking within 24 hours of checkout', 'error');
+      showToast.error('Cannot amend booking within 24 hours of checkout');
       return;
     }
 
     try {
       const response = await axios.post(`/api/bookings/amend/${editBooking._id}`, amendmentData);
-      showToast('Booking stay amended successfully!', 'success');
+      showToast.success('Booking stay amended successfully!');
       setShowAmendModal(false);
       
       // Update form data with new checkout date only
@@ -770,12 +777,15 @@ const EditBookingForm = () => {
     } catch (error) {
       console.error('Error amending booking:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Failed to amend booking';
-      showToast(errorMessage, 'error');
+      showToast.error(errorMessage);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (loading || isNavigating) return; // Prevent multiple submissions and navigation-triggered submissions
+    setLoading(true);
     
     try {
       // Calculate extra bed status
@@ -825,20 +835,18 @@ const EditBookingForm = () => {
       console.log('Sending update data:', updateData);
       const response = await axios.put(`/api/bookings/update/${editBooking._id}`, updateData);
       console.log('Update response:', response.data);
-      if (isMountedRef.current) {
-        showToast.success('Booking updated successfully!');
-        const timeoutId = setTimeout(() => {
-          if (isMountedRef.current) {
-            navigate('/booking');
-          }
-        }, 1500);
-        setNavigationTimeoutId(timeoutId);
-      }
+      showToast.success('Booking updated successfully!');
+      // Navigate immediately after showing toast
+      setTimeout(() => {
+        navigate('/booking');
+      }, 1000);
     } catch (error) {
       console.error('Error updating booking:', error);
       console.error('Error response:', error.response?.data);
       const errorMessage = error.response?.data?.error || error.message || 'Failed to update booking';
       showToast.error(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1100,7 +1108,7 @@ const EditBookingForm = () => {
                                 canvas.getContext('2d').drawImage(modalVideo, 0, 0);
                                 const imageData = canvas.toDataURL('image/jpeg');
                                 setFormData(prev => ({ ...prev, idProofImageUrl: imageData }));
-                                showToast('ID Proof Image 1 captured successfully', 'success');
+                                showToast.success('ID Proof Image 1 captured successfully');
                                 stream.getTracks().forEach(track => track.stop());
                                 document.body.removeChild(modal);
                               };
@@ -1109,7 +1117,7 @@ const EditBookingForm = () => {
                                 document.body.removeChild(modal);
                               };
                             })
-                            .catch(() => showToast('Camera access denied', 'error'));
+                            .catch(() => showToast.error('Camera access denied'));
                         }}
                         className="px-3 py-1 text-sm"
                       >
@@ -1167,7 +1175,7 @@ const EditBookingForm = () => {
                                 canvas.getContext('2d').drawImage(modalVideo, 0, 0);
                                 const imageData = canvas.toDataURL('image/jpeg');
                                 setFormData(prev => ({ ...prev, idProofImageUrl2: imageData }));
-                                showToast('ID Proof Image 2 captured successfully', 'success');
+                                showToast.success('ID Proof Image 2 captured successfully');
                                 stream.getTracks().forEach(track => track.stop());
                                 document.body.removeChild(modal);
                               };
@@ -1176,7 +1184,7 @@ const EditBookingForm = () => {
                                 document.body.removeChild(modal);
                               };
                             })
-                            .catch(() => showToast('Camera access denied', 'error'));
+                            .catch(() => showToast.error('Camera access denied'));
                         }}
                         className="px-3 py-1 text-sm"
                       >
@@ -1252,10 +1260,10 @@ const EditBookingForm = () => {
                                         const reader = new FileReader();
                                         reader.onloadend = () => {
                                             setFormData(prev => ({ ...prev, photoUrl: reader.result }));
-                                            showToast('Photo uploaded successfully', 'success');
+                                            showToast.success('Photo uploaded successfully');
                                         };
                                         reader.onerror = () => {
-                                            showToast('Failed to upload image', 'error');
+                                            showToast.error('Failed to upload image');
                                         };
                                         reader.readAsDataURL(file);
                                     }
@@ -1291,7 +1299,7 @@ const EditBookingForm = () => {
                                       canvas.getContext('2d').drawImage(modalVideo, 0, 0);
                                       const imageData = canvas.toDataURL('image/jpeg');
                                       setFormData(prev => ({ ...prev, photoUrl: imageData }));
-                                      showToast('Guest photo captured successfully', 'success');
+                                      showToast.success('Guest photo captured successfully');
                                       stream.getTracks().forEach(track => track.stop());
                                       document.body.removeChild(modal);
                                     };
@@ -1300,7 +1308,7 @@ const EditBookingForm = () => {
                                       document.body.removeChild(modal);
                                     };
                                   })
-                                  .catch(() => showToast('Camera access denied', 'error'));
+                                  .catch(() => showToast.error('Camera access denied'));
                               }}
                               className="px-3 py-1 text-sm"
                             >
@@ -1843,14 +1851,20 @@ const EditBookingForm = () => {
                             </div>
                             <div className="flex space-x-2">
                               <button
-                                onClick={() => navigate(`/room-service/details/${order._id}`)}
+                                onClick={() => {
+                                  setIsNavigating(true);
+                                  navigate(`/room-service/details/${order._id}`);
+                                }}
                                 className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
                               >
                                 View
                               </button>
                               {order.status !== 'delivered' && order.status !== 'cancelled' && (
                                 <button
-                                  onClick={() => navigate(`/room-service/edit/${order._id}`)}
+                                  onClick={() => {
+                                    setIsNavigating(true);
+                                    navigate(`/room-service/edit/${order._id}`);
+                                  }}
                                   className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
                                 >
                                   Edit
@@ -1891,14 +1905,26 @@ const EditBookingForm = () => {
                               </span>
                             </div>
                             <div className="text-sm text-gray-600 mb-2">
-                              Table {order.tableNo} • {order.items?.length || 0} items • ₹{order.amount}
+                              Room {order.tableNo} • {order.items?.length || 0} items • ₹{order.amount}
                             </div>
                             <div className="flex space-x-2">
                               <button
-                                onClick={() => navigate('/restaurant/all-orders')}
+                                onClick={() => {
+                                  setIsNavigating(true);
+                                  navigate('/restaurant/all-orders');
+                                }}
                                 className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
                               >
                                 View All
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setIsNavigating(true);
+                                  navigate(`/restaurant/edit-order/${order._id}`);
+                                }}
+                                className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                              >
+                                Edit
                               </button>
                             </div>
                           </div>
@@ -1909,18 +1935,22 @@ const EditBookingForm = () => {
                 </div>
                 
                 <div className="flex justify-center">
-                  <button
-                    onClick={() => navigate('/room-service/create', {
-                      state: { 
-                        preSelectedBooking: editBooking,
-                        returnTo: '/booking'
-                      }
-                    })}
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setIsNavigating(true);
+                      navigate('/room-service/create', {
+                        state: { 
+                          preSelectedBooking: editBooking,
+                          returnTo: '/booking'
+                        }
+                      });
+                    }}
                     className="px-6 py-3 rounded-lg font-medium text-white transition-colors"
                     style={{backgroundColor: 'hsl(45, 43%, 58%)'}}
                   >
                     + Create New Room Service Order
-                  </button>
+                  </Button>
                 </div>
               </section>
 
@@ -2308,7 +2338,10 @@ const EditBookingForm = () => {
               <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
                 <Button
                   type="button"
-                  onClick={() => navigate('/booking')}
+                  onClick={() => {
+                    setIsNavigating(true);
+                    navigate('/booking');
+                  }}
                   variant="outline"
                   className="px-8 py-3 font-semibold rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 w-full sm:w-auto"
                 >
@@ -2335,9 +2368,10 @@ const EditBookingForm = () => {
                 </Button>
                 <Button
                   type="submit"
+                  disabled={loading}
                   className="px-8 py-3 font-semibold rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 w-full sm:w-auto"
                 >
-                  Update Booking
+                  {loading ? 'Updating...' : 'Update Booking'}
                 </Button>
               </div>
             </form>

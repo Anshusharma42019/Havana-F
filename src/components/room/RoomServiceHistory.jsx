@@ -223,22 +223,18 @@ const RoomServiceHistory = () => {
                             >
                               Details
                             </button>
-                            {order.status !== 'completed' && order.status !== 'cancelled' && (
-                              <>
-                                <button
-                                  onClick={() => navigate(`/room-service/edit/${order._id}`)}
-                                  className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => updateOrderStatus(order._id, 'cancelled')}
-                                  className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                                >
-                                  Delete
-                                </button>
-                              </>
-                            )}
+                            <button
+                              onClick={() => navigate(`/room-service/edit/${order._id}`)}
+                              className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => updateOrderStatus(order._id, 'cancelled')}
+                              className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                            >
+                              Delete
+                            </button>
                           </div>
                         </div>
                       </td>

@@ -293,28 +293,24 @@ const AllOrders = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      {order.status === 'pending' && (
-                        <button
-                          onClick={() => navigate(`/restaurant/edit-order/${order._id}`)}
-                          className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
-                        >
-                          Edit
-                        </button>
-                      )}
+                      <button
+                        onClick={() => navigate(`/restaurant/edit-order/${order._id}`)}
+                        className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => updateOrderStatus(order._id, 'cancelled')}
+                        className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+                      >
+                        Delete
+                      </button>
                       {order.status === 'pending' && (
                         <button
                           onClick={() => updateOrderStatus(order._id, 'completed')}
                           className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
                         >
                           Complete
-                        </button>
-                      )}
-                      {order.status === 'pending' && (
-                        <button
-                          onClick={() => updateOrderStatus(order._id, 'cancelled')}
-                          className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
-                        >
-                          Cancel
                         </button>
                       )}
                       {(order.status === 'completed' || order.status === 'served') && (
