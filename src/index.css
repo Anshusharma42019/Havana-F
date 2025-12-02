@@ -10,6 +10,16 @@
   --color-hover: hsl(45, 32%, 46%);
 }
 
+/* Hide scrollbar */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
 @layer utilities {
   .bg-app-gradient {
     @apply bg-gradient-to-br from-white via-gray-200 to-background;

@@ -100,7 +100,7 @@ const Users = () => {
     );
     
     try {
-      await axios.patch(`/api/users/toggle-status/${userId}`);
+      const response = await axios.patch(`/api/users/toggle-status/${userId}`);
       showToast.success('User status updated successfully!');
       
       // If user was deactivated, broadcast to force logout
@@ -113,6 +113,13 @@ const Users = () => {
         window.dispatchEvent(new CustomEvent('forceLogout', { detail: { userId } }));
       }
       
+      if (currentStatus !== false) {
+        // Broadcast message to all tabs/windows
+        localStorage.setItem('forceLogout', JSON.stringify({ userId, timestamp: Date.now() }));
+        localStorage.removeItem('forceLogout');
+      }
+      
+      fetchUsers(currentPage);
     } catch (error) {
       console.error('Error updating user status:', error);
       showToast.error('Failed to update user status');
@@ -273,6 +280,7 @@ const Users = () => {
                           >
                             Edit
                           </button>
+
                           <button
                             onClick={() => handleDelete(user._id)}
                             className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
